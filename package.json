@@ -1,0 +1,12 @@
+{
+  "name": "contact-backend",
+  "version": "0.3.1",
+  "private": true,
+  "description": "CONTACT backend: Telegram bridge + Persona API",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

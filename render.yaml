@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: contact-backend
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: ""
+    startCommand: node server.js
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        value: "902102344"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: MESSAGE_LIMIT_PER_HOUR
+        value: "30"
+      - key: LLM_ENDPOINT
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        sync: false
