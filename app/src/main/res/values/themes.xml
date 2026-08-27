@@ -1,0 +1,9 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.SvyazSBogom" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#05020A</item>
+        <item name="android:navigationBarColor">#05020A</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
