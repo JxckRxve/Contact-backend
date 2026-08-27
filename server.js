@@ -250,8 +250,19 @@ const server = http.createServer(async (req,res) => {
     if (req.method === "OPTIONS") return json(res,200,{ok:true});
     const url = new URL(req.url, `http://${req.headers.host}`);
 
+    if (req.method === "GET" && url.pathname === "/") {
+      const landingPath = path.join(__dirname, "public", "index.html");
+      const body = fs.readFileSync(landingPath, "utf8");
+      res.writeHead(200, {
+        "Content-Type":"text/html; charset=utf-8",
+        "Cache-Control":"public, max-age=300",
+        "X-Content-Type-Options":"nosniff"
+      });
+      return res.end(body);
+    }
+
     if (req.method === "GET" && url.pathname === "/health") {
-      return json(res,200,{ok:true,product:"CONTACT",version:"0.3.0"});
+      return json(res,200,{ok:true,product:"CONTACT",version:"0.4.0"});
     }
 
     if (req.method === "POST" && url.pathname === "/api/message") {
@@ -357,5 +368,5 @@ const server = http.createServer(async (req,res) => {
   }
 });
 
-server.listen(PORT,()=>console.log(`CONTACT backend 0.3: http://0.0.0.0:${PORT}`));
+server.listen(PORT,()=>console.log(`CONTACT backend 0.4: http://0.0.0.0:${PORT}`));
 pollTelegram();
