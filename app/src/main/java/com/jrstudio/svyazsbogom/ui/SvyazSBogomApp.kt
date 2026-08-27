@@ -161,7 +161,7 @@ fun SvyazSBogomApp() {
                             title = "DEVELOPER",
                             subtitle = "Связь с разработчиком",
                             channel = "developer",
-                            intro = "Не по приложению. По жизни.",
+                            intro = "По ту сторону действительно человек.",
                             badge = "LIVE HUMAN",
                             settings = settings,
                             palette = palette,
@@ -172,7 +172,7 @@ fun SvyazSBogomApp() {
                             title = "HIGHER",
                             subtitle = "Выше",
                             channel = "higher",
-                            intro = "Скажи то, что не можешь сказать никому.",
+                            intro = "Если бы это сообщение точно дошло — что бы ты написал?",
                             badge = "PRIVATE",
                             settings = settings,
                             palette = palette,
@@ -212,8 +212,15 @@ private fun SplashScreen(settings: UiSettings, palette: ContactPalette) {
 
 @Composable
 private fun HomeScreen(settings: UiSettings, palette: ContactPalette, onOpen: (Screen) -> Unit, onSettings: () -> Unit) {
+    val context = LocalContext.current
+    val identity = remember { installIdentity(context) }
     var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { entered = true }
+    var coins by remember { mutableIntStateOf(150) }
+    LaunchedEffect(Unit) {
+        entered = true
+        runCatching { ApiClient.api.wallet(identity.conversationId, identity.installSecret) }
+            .onSuccess { if (it.ok) coins = it.balance }
+    }
 
     Column(
         Modifier
@@ -223,6 +230,10 @@ private fun HomeScreen(settings: UiSettings, palette: ContactPalette, onOpen: (S
     ) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.weight(1f))
+            Surface(color = palette.accent.copy(alpha = .12f), shape = RoundedCornerShape(100.dp)) {
+                Text("$coins C", color = palette.soft, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+            }
+            Spacer(Modifier.width(6.dp))
             IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Настройки", tint = palette.soft) }
         }
 
@@ -231,29 +242,35 @@ private fun HomeScreen(settings: UiSettings, palette: ContactPalette, onOpen: (S
         Text("C O N T A C T", color = palette.text, fontSize = 26.sp, letterSpacing = 4.5.sp, fontWeight = FontWeight.Light)
         Text("ESTABLISH CONTACT", color = palette.soft, fontSize = 10.sp, letterSpacing = 2.5.sp)
         Spacer(Modifier.height(10.dp))
-        Text("Скажи. Тебя услышат.", color = palette.text, fontFamily = FontFamily.Serif, fontSize = (22 * settings.fontScale).sp)
+        Text("Скажи то, что обычно оставляешь при себе.", color = palette.text, fontFamily = FontFamily.Serif, fontSize = (20 * settings.fontScale).sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(16.dp))
 
         Entrance(entered, 0, settings.motion) {
-            PortalCard("💬", "DEVELOPER", "Связь с разработчиком", "Не по приложению. По жизни.", "FREE", palette, settings) { onOpen(Screen.DEVELOPER) }
+            PortalCard("💬", "CONTACT", "Человек по ту сторону", "Напиши тому, кто всё это создал. О чём угодно.", "FREE", palette, settings) { onOpen(Screen.DEVELOPER) }
         }
         Entrance(entered, 70, settings.motion) {
-            PortalCard("🪞", "PERSONA", "Любая личность", "Создай ИИ-образ человека из своих воспоминаний.", "AI", palette, settings) { onOpen(Screen.PERSONA) }
+            PortalCard("🪞", "PERSONA", "Создай того, с кем хочешь говорить", "По памяти, идее или референсам. CONTACT проведёт тебя вопрос за вопросом.", "AI", palette, settings) { onOpen(Screen.PERSONA) }
         }
         Entrance(entered, 140, settings.motion) {
-            PortalCard("🌫", "UNLOAD", "Сбросить груз", "Персональная приватная сессия 45–60 минут.", "5 000 ₽", palette, settings) { onOpen(Screen.UNLOAD) }
+            PortalCard("🌫", "UNLOAD", "Оставить это здесь", "45–60 минут, где не нужно делать вид, что всё нормально.", "LIVE", palette, settings) { onOpen(Screen.UNLOAD) }
         }
         Entrance(entered, 210, settings.motion) {
-            PortalCard("✦", "HIGHER", "Выше", "Для слов, которые трудно сказать кому-либо.", "PRIVATE", palette, settings) { onOpen(Screen.HIGHER) }
+            PortalCard("✦", "HIGHER", "Без адресата", "Для того, что давно хочется сказать — но некому.", "PRIVATE", palette, settings) { onOpen(Screen.HIGHER) }
         }
 
         Spacer(Modifier.weight(1f))
         Text(
-            "Анонимно • конфиденциально • человеческий контакт",
+            "Можно просто начать с одной фразы.",
             color = palette.muted,
             textAlign = TextAlign.Center,
-            fontSize = 10.sp,
-            modifier = Modifier.padding(bottom = 10.dp)
+            fontSize = 10.sp
+        )
+        Text(
+            "CONTACT создаётся прямо сейчас • поддержать проект — скоро",
+            color = palette.soft.copy(alpha = .78f),
+            textAlign = TextAlign.Center,
+            fontSize = 9.sp,
+            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
         )
     }
 }
@@ -393,7 +410,7 @@ private fun HumanContactScreen(
                 Text(intro, color = palette.text, fontFamily = FontFamily.Serif, fontSize = (23 * settings.fontScale).sp, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(9.dp))
                 Text(
-                    if (channel == "developer") "Отвечает живой человек. Первый контакт бесплатно." else "Поэтический приватный режим. Не буквальная связь с высшими силами.",
+                    if (channel == "developer") "Можешь написать о себе, идее, проблеме или странной мысли. Первое обращение бесплатно." else "Поэтический приватный режим. Не буквальная связь с высшими силами.",
                     color = palette.muted,
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center
@@ -440,7 +457,7 @@ private fun HumanContactScreen(
                 modifier = Modifier.weight(1f),
                 minLines = 1,
                 maxLines = 5,
-                placeholder = { Text("Скажи, что у тебя на сердце…", color = palette.muted) },
+                placeholder = { Text(if (channel == "developer") "Можешь начать: «Слушай, тут такая история…»" else "Если бы это сообщение точно дошло — что бы ты написал?", color = palette.muted) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = palette.accentBright,
                     unfocusedBorderColor = palette.accent.copy(alpha = .25f),
@@ -543,8 +560,8 @@ private fun PersonaScreen(settings: UiSettings, palette: ContactPalette, onBack:
 
         if (personaId == null) {
             Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center) {
-                Text("Восстановим образ постепенно.", color = palette.text, fontFamily = FontFamily.Serif, fontSize = (26 * settings.fontScale).sp)
-                Text("PERSONA — ИИ-образ из твоих воспоминаний. Это не сам человек.", color = palette.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp, bottom = 20.dp))
+                Text("Тебе не нужен хороший промт. Мне нужны твои ответы.", color = palette.text, fontFamily = FontFamily.Serif, fontSize = (26 * settings.fontScale).sp)
+                Text("Собери человека, героя или новую личность. По памяти, идее или референсам.", color = palette.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp, bottom = 20.dp))
 
                 LinearProgressIndicator(
                     progress = { (step + 1f) / prompts.size.toFloat() },

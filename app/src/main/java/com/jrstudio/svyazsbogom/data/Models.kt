@@ -81,3 +81,73 @@ data class PersonaMessageResponse(
     val reply: String? = null,
     val error: String? = null
 )
+
+data class WalletResponse(
+    val ok: Boolean,
+    val balance: Int = 150,
+    val reserve: Int = 0,
+    val startingCoins: Int = 150,
+    val dailyCoins: Int = 5
+)
+
+data class CoinActionRequest(
+    val conversationId: String,
+    val installSecret: String,
+    val amount: Int? = null
+)
+
+data class CoinActionResponse(
+    val ok: Boolean,
+    val claimed: Boolean? = null,
+    val taken: Boolean? = null,
+    val delta: Int? = null,
+    val balance: Int = 0,
+    val reserve: Int = 0,
+    val error: String? = null
+)
+
+data class AiChatRequest(
+    val conversationId: String,
+    val installSecret: String,
+    val text: String,
+    val task: String = "chat",
+    val quality: String = "auto",
+    val personaId: String? = null
+)
+
+data class AiChatResponse(
+    val ok: Boolean,
+    val reply: String? = null,
+    val provider: String? = null,
+    val model: String? = null,
+    val cost: Int = 0,
+    val balance: Int = 0,
+    val error: String? = null,
+    val needed: Int? = null
+)
+
+data class AgentPlanRequest(
+    val conversationId: String,
+    val installSecret: String,
+    val goal: String,
+    val context: String = "",
+    val quality: String = "auto"
+)
+
+data class AgentPlanResponse(
+    val ok: Boolean,
+    val provider: String? = null,
+    val model: String? = null,
+    val plan: Map<String, Any?>? = null,
+    val cost: Int = 0,
+    val balance: Int = 0,
+    val status: String? = null,
+    val error: String? = null
+)
+
+data class MemorySaveRequest(
+    val conversationId: String,
+    val installSecret: String,
+    val text: String,
+    val scope: String = "user"
+)

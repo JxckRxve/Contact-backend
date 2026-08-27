@@ -30,6 +30,30 @@ interface ContactApi {
 
     @POST("api/persona/message")
     suspend fun personaMessage(@Body request: PersonaMessageRequest): PersonaMessageResponse
+
+    @GET("api/wallet")
+    suspend fun wallet(
+        @Query("conversationId") conversationId: String,
+        @Query("installSecret") installSecret: String
+    ): WalletResponse
+
+    @POST("api/wallet/claim-daily")
+    suspend fun claimDaily(@Body request: CoinActionRequest): CoinActionResponse
+
+    @POST("api/wallet/reserve/give")
+    suspend fun giveReserve(@Body request: CoinActionRequest): CoinActionResponse
+
+    @POST("api/wallet/reserve/take")
+    suspend fun takeReserve(@Body request: CoinActionRequest): CoinActionResponse
+
+    @POST("api/ai/chat")
+    suspend fun aiChat(@Body request: AiChatRequest): AiChatResponse
+
+    @POST("api/agent/plan")
+    suspend fun agentPlan(@Body request: AgentPlanRequest): AgentPlanResponse
+
+    @POST("api/memory")
+    suspend fun saveMemory(@Body request: MemorySaveRequest): BasicResponse
 }
 
 object ApiClient {
