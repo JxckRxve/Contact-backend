@@ -12,13 +12,17 @@ android {
         applicationId = "com.jrstudio.contact"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.3.3"
+        versionCode = 6
+        versionName = "0.4.0"
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -44,6 +48,7 @@ dependencies {
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
