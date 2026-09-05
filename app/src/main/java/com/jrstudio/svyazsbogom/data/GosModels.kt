@@ -187,9 +187,18 @@ data class GosCounts(
     val fitnessRecords: Int = 0
 )
 
+data class GosModelProvider(
+    val id: String,
+    val label: String,
+    val kind: String,
+    val model: String? = null,
+    val configured: Boolean = false
+)
+
 data class GosStateResponse(
     val ok: Boolean,
     val version: String? = null,
     val counts: GosCounts = GosCounts(),
+    val providers: List<GosModelProvider> = emptyList(),
     val error: String? = null
 )
