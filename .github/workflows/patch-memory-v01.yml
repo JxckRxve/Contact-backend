@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'scripts/patch-memory-v01.py'
+      - 'scripts/fix-memory-test-count.py'
       - '.github/workflows/patch-memory-v01.yml'
 
 permissions:
@@ -22,7 +23,9 @@ jobs:
         with:
           node-version: '20'
       - name: Apply Memory Core backend patch
-        run: python scripts/patch-memory-v01.py
+        run: |
+          python scripts/patch-memory-v01.py
+          python scripts/fix-memory-test-count.py
       - name: Syntax check
         run: |
           node --check gos/standalone.js
