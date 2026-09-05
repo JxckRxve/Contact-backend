@@ -54,13 +54,54 @@ interface ContactApi {
 
     @POST("api/memory")
     suspend fun saveMemory(@Body request: MemorySaveRequest): BasicResponse
+
+    // G-OS Core v0.1
+    @GET("api/gos/state")
+    suspend fun gosState(
+        @Query("conversationId") conversationId: String,
+        @Query("installSecret") installSecret: String
+    ): GosStateResponse
+
+    @GET("api/gos/spaces")
+    suspend fun gosSpaces(
+        @Query("conversationId") conversationId: String,
+        @Query("installSecret") installSecret: String
+    ): GosSpacesResponse
+
+    @POST("api/gos/spaces")
+    suspend fun gosCreateSpace(@Body request: GosSpaceCreateRequest): GosSpaceCreateResponse
+
+    @GET("api/gos/personas")
+    suspend fun gosPersonas(
+        @Query("conversationId") conversationId: String,
+        @Query("installSecret") installSecret: String,
+        @Query("spaceId") spaceId: String? = null
+    ): GosPersonasResponse
+
+    @POST("api/gos/personas")
+    suspend fun gosCreatePersona(@Body request: GosPersonaCreateRequest): GosPersonaCreateResponse
+
+    @POST("api/gos/tasks/run")
+    suspend fun gosRunTask(@Body request: GosTaskRunRequest): GosTaskRunResponse
+
+    @GET("api/gos/memory")
+    suspend fun gosMemory(
+        @Query("conversationId") conversationId: String,
+        @Query("installSecret") installSecret: String
+    ): GosMemoryResponse
+
+    @GET("api/gos/fitness")
+    suspend fun gosFitness(
+        @Query("conversationId") conversationId: String,
+        @Query("installSecret") installSecret: String
+    ): GosFitnessResponse
 }
 
 object ApiClient {
     private val client = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(35, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
     val api: ContactApi = Retrofit.Builder()
