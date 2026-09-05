@@ -49,12 +49,25 @@ async function main() {
   const mock = http.createServer(async (req, res) => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
-    const input = raw ? JSON.parse(raw) : {};
-    const userText = input?.messages?.findLast?.(m => m.role === "user")?.content || "task";
+    const body = raw ? JSON.parse(raw) : {};
+    const lastInput = Array.isArray(body.input) ? body.input[body.input.length - 1] : null;
+    const userText = typeof lastInput?.content === "string" ? lastInput.content : "task";
+
+    assert(body.model === "mock-responses-model", "Responses model missing");
+    assert(typeof body.instructions === "string" && body.instructions.includes("G-OS"), "Responses instructions missing");
+    assert(body.store === false, "Responses store must be false");
+
     res.writeHead(200, {"Content-Type":"application/json"});
     res.end(JSON.stringify({
-      choices:[{message:{content:`MOCK_RESULT: ${userText}`}}],
-      usage:{prompt_tokens:10,completion_tokens:5,total_tokens:15}
+      id:"resp_mock",
+      model:"mock-responses-model",
+      output:[{
+        id:"msg_mock",
+        type:"message",
+        role:"assistant",
+        content:[{type:"output_text",text:`MOCK_RESULT: ${userText}`,annotations:[]}]
+      }],
+      usage:{input_tokens:10,output_tokens:5,total_tokens:15}
     }));
   });
   await new Promise(resolve => mock.listen(MOCK_PORT, "127.0.0.1", resolve));
@@ -66,9 +79,10 @@ async function main() {
       PORT:String(APP_PORT),
       DB_PATH:dbPath,
       GOS_DB_PATH:gosDbPath,
-      CONTACT_AI_PRIMARY_ENDPOINT:`http://127.0.0.1:${MOCK_PORT}/v1/chat/completions`,
+      CONTACT_AI_PRIMARY_ENDPOINT:`http://127.0.0.1:${MOCK_PORT}/v1/responses`,
       CONTACT_AI_PRIMARY_API_KEY:"test-key",
-      CONTACT_AI_PRIMARY_MODEL:"mock-model",
+      CONTACT_AI_PRIMARY_MODEL:"mock-responses-model",
+      CONTACT_AI_PRIMARY_KIND:"openai-responses",
       TELEGRAM_BOT_TOKEN:"",
       TELEGRAM_ADMIN_CHAT_ID:"",
       NODE_ENV:"test"
@@ -89,6 +103,10 @@ async function main() {
     assert(spaces.status === 200 && spaces.body.ok, "G-OS spaces failed");
     const home = spaces.body.items.find(x => x.key === "HOME");
     assert(home, "HOME space missing");
+
+    const providers = await request(`/api/gos/model-providers?conversationId=${conversationId}&installSecret=${installSecret}`);
+    assert(providers.status === 200 && providers.body.items?.[0]?.kind === "openai-responses", "Responses provider status missing");
+    assert(providers.body.items?.[0]?.configured === true, "Responses provider not configured in test");
 
     const persona = await request("/api/gos/personas", {
       method:"POST",
@@ -112,8 +130,8 @@ async function main() {
     assert(state.body.counts.memories === 1, "memory persistence failed");
     assert(state.body.counts.fitnessRecords === 1, "fitness persistence failed");
 
-    console.log("PASS G-OS CORE: USER -> SPACE -> PERSONA -> TASK -> RESULT -> MEMORY -> EXPERIENCE -> FITNESS");
-    console.log(JSON.stringify({legacyWallet:wallet.body.balance,spaces:spaces.body.items.length,result:cycle.body.task.result,counts:state.body.counts}, null, 2));
+    console.log("PASS G-OS CORE + OPENAI RESPONSES: USER -> SPACE -> PERSONA -> TASK -> RESULT -> MEMORY -> EXPERIENCE -> FITNESS");
+    console.log(JSON.stringify({legacyWallet:wallet.body.balance,spaces:spaces.body.items.length,provider:providers.body.items[0],result:cycle.body.task.result,counts:state.body.counts}, null, 2));
   } finally {
     app.kill("SIGTERM");
     mock.close();
