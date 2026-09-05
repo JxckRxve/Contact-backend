@@ -280,7 +280,7 @@ private fun GosSpaces(
         GosHeader("SPACES", "Choose operating context", onBack)
         if (loading && spaces.isEmpty()) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = GosPurple)
         error?.let { Text(it, color = GosRed, fontSize = 10.sp, modifier = Modifier.padding(vertical = 8.dp)) }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp), contentPadding = PaddingValues(vertical = 12.dp, bottom = 30.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp), contentPadding = PaddingValues(start = 0.dp, top = 12.dp, end = 0.dp, bottom = 30.dp)) {
             items(spaces.sortedWith(compareBy<GosSpace> { it.status != "CORE" }.thenBy { it.name }), key = { it.id }) { space ->
                 Surface(
                     color = GosSurface.copy(alpha = .94f),
@@ -380,7 +380,7 @@ private fun GosPersonas(
         (localError ?: error)?.let { Text(it, color = GosRed, fontSize = 10.sp, modifier = Modifier.padding(vertical = 5.dp)) }
         if (loading && personas.isEmpty()) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = GosPurple)
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp), contentPadding = PaddingValues(vertical = 8.dp, bottom = 30.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp), contentPadding = PaddingValues(start = 0.dp, top = 8.dp, end = 0.dp, bottom = 30.dp)) {
             items(personas, key = { it.id }) { persona ->
                 Surface(
                     color = GosSurface.copy(alpha = .94f),
