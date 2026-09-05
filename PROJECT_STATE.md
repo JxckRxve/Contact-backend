@@ -24,7 +24,7 @@ Updated: 2026-09-05
 - Added Android G-OS data models and Retrofit Core API bindings.
 - Added Android `GosRootApp` control-center shell without deleting or rewriting legacy `SvyazSBogomApp`.
 - Added Android navigation:
-  HOME → SPACES → PERSONAS → TASK RUNNER.
+  HOME → CORE DIAGNOSTICS / SPACES → PERSONAS → TASK RUNNER.
 - Added Persona creation UI with Agent Genome v0.1 fields.
 - Added Task Runner UI with RESULT / MEMORY / EXPERIENCE / FITNESS status surfaces.
 - Legacy CONTACT remains reachable from the G-OS shell as CONTACT DNA.
@@ -36,14 +36,23 @@ Updated: 2026-09-05
   - `LLM_MODEL=gpt-5.6-luna`
   - `LLM_KIND=openai-responses`
 - `.env.example` documents Responses and generic provider modes.
-- Android now parses ModelProvider status from `/api/gos/state`.
+- Android parses ModelProvider status from `/api/gos/state`.
 - Added explicit Android model state:
   - `MODEL CHECKING`
   - `MODEL CONNECTED`
   - `MODEL OFFLINE / API WAITING`
 - Task Runner is disabled when no configured provider exists and shows `WAITING FOR API` instead of sending a guaranteed-failing model request.
-- G-OS v0.1.1 Android APK with provider-aware offline state compiled successfully in GitHub Actions.
-- Build artifact: `G-OS-v0.1.1-debug-apk`.
+- Added `CORE DIAGNOSTICS / SELF-TEST` screen.
+- Core diagnostics checks the actual runtime without a paid model call:
+  - install identity/auth;
+  - Render/G-OS Core response;
+  - base Spaces + HOME;
+  - Persona API;
+  - ModelProvider state;
+  - whether the full Task loop is ready for explicit testing.
+- Diagnostics never triggers AI by itself, so it cannot spend API tokens.
+- G-OS v0.1.2 diagnostics Android APK compiled successfully in GitHub Actions.
+- Build artifact: `G-OS-v0.1.2-debug-apk`.
 
 ## WORKING
 
@@ -73,6 +82,7 @@ Updated: 2026-09-05
 
 ### Android G-OS shell
 - HOME dashboard.
+- Core Diagnostics / Self-Test.
 - Space selection.
 - Persona list/create.
 - Task Runner.
@@ -97,7 +107,7 @@ Updated: 2026-09-05
   - configured `false` until `LLM_API_KEY` is supplied.
 - The strict production full-loop smoke therefore correctly fails at `Real AI provider is configured` and does not mark Core READY.
 - The complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY until a real model request passes.
-- The APK has compiled successfully, but the new G-OS shell has not yet been manually exercised on a physical Android device against a real model.
+- The v0.1.2 APK compiled successfully, but physical-device UI/self-test still needs the owner to launch it on Android.
 - Persistence is JSON-file based and not production-grade.
 - G-OS and legacy CONTACT currently use separate prototype data stores to prevent accidental legacy corruption; deliberate DB migration/unification is required later.
 - Achievements storage exists, but event rules are not wired yet.
@@ -108,15 +118,23 @@ Updated: 2026-09-05
 
 ## NEXT
 
-1. While OpenAI API access is unavailable, use `G-OS-v0.1.1-debug.apk` only to verify the Android shell and the honest `MODEL OFFLINE / API WAITING` state.
-2. When API access becomes available, set only the secret `LLM_API_KEY` in Render.
-3. Re-run strict production smoke and require:
+1. Install/run `G-OS-v0.1.2-debug.apk` on the physical Android device.
+2. Open `CORE DIAGNOSTICS`; expected pre-API result:
+   - AUTH = PASS
+   - RENDER / G-OS CORE = PASS
+   - BASE SPACES = PASS
+   - PERSONA API = PASS
+   - MODEL PROVIDER = WAIT
+   - FULL TASK LOOP = WAIT
+3. If any pre-API item is FAIL, fix it before proceeding.
+4. When OpenAI API access becomes available, set only the secret `LLM_API_KEY` in Render.
+5. Re-run diagnostics, then strict production smoke and require:
    TASK → RESULT → MEMORY → EXPERIENCE → FITNESS = PASS.
-4. Run the same task from the actual Android UI against Render.
-5. Mark the Core vertical slice READY only after Android + Render + real model pass together.
-6. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
-7. Wire event-driven Achievements.
-8. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
+6. Run the same task from the actual Android UI against Render.
+7. Mark the Core vertical slice READY only after Android + Render + real model pass together.
+8. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
+9. Wire event-driven Achievements.
+10. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
 
 ## STATUS MODEL
 
@@ -131,8 +149,9 @@ Updated: 2026-09-05
 - Legacy CONTACT: WORKING / PRESERVED.
 - G-OS backend Core: CONNECTED + TESTED in CI and Render for non-model routes.
 - OpenAI Responses adapter: TESTED in CI.
-- Android G-OS shell: UI + API CONNECTED in code; APK BUILD TESTED.
-- Android model-offline behavior: TESTED by successful compile/build; physical-device UI check still pending.
+- Android G-OS shell v0.1.2: UI + API CONNECTED in code; APK BUILD TESTED.
+- Android Core Diagnostics: IMPLEMENTED + BUILD TESTED; physical-device result pending.
+- Android model-offline behavior: BUILD TESTED; physical-device UI check pending.
 - AI ModelProvider on Render: WAITING FOR SECRET API KEY.
 - Full Core vertical slice: NOT READY.
 
