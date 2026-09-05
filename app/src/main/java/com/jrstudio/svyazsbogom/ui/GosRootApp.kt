@@ -36,7 +36,7 @@ private val GosMuted = Color(0xFFA79CAF)
 private val GosGreen = Color(0xFF92E6B7)
 private val GosRed = Color(0xFFFF9AA8)
 
-private enum class GosScreen { HOME, DIAGNOSTICS, SPACES, PERSONAS, TASK }
+private enum class GosScreen { HOME, DIAGNOSTICS, MEMORY, SPACES, PERSONAS, TASK }
 
 private data class GosDiagnosticItem(
     val label: String,
@@ -126,6 +126,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
             GosScreen.PERSONAS -> GosScreen.SPACES
             GosScreen.SPACES -> GosScreen.HOME
             GosScreen.DIAGNOSTICS -> GosScreen.HOME
+            GosScreen.MEMORY -> GosScreen.HOME
             GosScreen.HOME -> GosScreen.HOME
         }
     }
@@ -149,6 +150,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
                 error = error,
                 onSpaces = { screen = GosScreen.SPACES },
                 onDiagnostics = { screen = GosScreen.DIAGNOSTICS },
+                onMemory = { screen = GosScreen.MEMORY },
                 onLegacy = onOpenLegacy,
                 onRefresh = { scope.launch { loadCore() } }
             )
@@ -157,6 +159,13 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
                 identitySecret = identity.installSecret,
                 onBack = { screen = GosScreen.HOME },
                 onCoreChanged = { scope.launch { loadCore() } }
+            )
+            GosScreen.MEMORY -> GosMemoryScreen(
+                identityId = identity.conversationId,
+                identitySecret = identity.installSecret,
+                spaces = spaces,
+                onBack = { screen = GosScreen.HOME },
+                onChanged = { scope.launch { loadCore() } }
             )
             GosScreen.SPACES -> GosSpaces(
                 spaces = spaces,
@@ -205,6 +214,7 @@ private fun GosHome(
     error: String?,
     onSpaces: () -> Unit,
     onDiagnostics: () -> Unit,
+    onMemory: () -> Unit,
     onLegacy: () -> Unit,
     onRefresh: () -> Unit
 ) {
@@ -253,6 +263,13 @@ private fun GosHome(
             subtitle = "Verify auth, Render Core, Spaces, Persona API and ModelProvider",
             badge = "SELF-TEST",
             onClick = onDiagnostics
+        )
+        GosNavCard(
+            icon = Icons.Rounded.Memory,
+            title = "MEMORY CORE",
+            subtitle = "Working / Episodic / Personal / Agent / Space + retrieval preview",
+            badge = "CORE v0.1",
+            onClick = onMemory
         )
         GosNavCard(
             icon = Icons.Rounded.Hub,
