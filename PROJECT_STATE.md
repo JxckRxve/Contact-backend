@@ -29,14 +29,21 @@ Updated: 2026-09-05
 - Added Task Runner UI with RESULT / MEMORY / EXPERIENCE / FITNESS status surfaces.
 - Legacy CONTACT remains reachable from the G-OS shell as CONTACT DNA.
 - Fixed Compose compilation errors found by CI.
-- Android G-OS APK build passed on GitHub Actions; `G-OS-debug-apk` artifact was generated successfully.
 - Production Render smoke verified that `/health`, `/api/gos/state`, Spaces and Persona creation are live.
 - Added strict production smoke that refuses to mark the vertical loop complete unless a real AI provider is configured and Task → Result → Memory → Experience → Fitness succeeds.
-- Render blueprint now contains non-secret OpenAI defaults:
+- Render blueprint contains non-secret OpenAI defaults:
   - `LLM_ENDPOINT=https://api.openai.com/v1/responses`
   - `LLM_MODEL=gpt-5.6-luna`
   - `LLM_KIND=openai-responses`
 - `.env.example` documents Responses and generic provider modes.
+- Android now parses ModelProvider status from `/api/gos/state`.
+- Added explicit Android model state:
+  - `MODEL CHECKING`
+  - `MODEL CONNECTED`
+  - `MODEL OFFLINE / API WAITING`
+- Task Runner is disabled when no configured provider exists and shows `WAITING FOR API` instead of sending a guaranteed-failing model request.
+- G-OS v0.1.1 Android APK with provider-aware offline state compiled successfully in GitHub Actions.
+- Build artifact: `G-OS-v0.1.1-debug-apk`.
 
 ## WORKING
 
@@ -72,18 +79,23 @@ Updated: 2026-09-05
 - Result display.
 - Memory / Experience / Fitness result indicators.
 - Legacy CONTACT entry.
+- Provider-aware connection status.
+- Offline-safe Task Runner lock while API is unavailable.
 - APK compilation and artifact generation are TESTED.
 
 ### Model routing
 - OpenAI-compatible Chat Completions: TESTED by previous Core path.
-- OpenAI Responses adapter: TESTED in current CI with a mock Responses server.
+- OpenAI Responses adapter: TESTED in CI with a mock Responses server.
 - Local/self-hosted OpenAI-compatible abstraction remains available.
 
 ## ISSUES
 
 - Production Render still has no secret API key configured, so no provider can make a real paid/model request yet.
+- Current production provider state is expected to be:
+  - primary `openai-responses`
+  - model `gpt-5.6-luna`
+  - configured `false` until `LLM_API_KEY` is supplied.
 - The strict production full-loop smoke therefore correctly fails at `Real AI provider is configured` and does not mark Core READY.
-- Non-secret endpoint/model/kind defaults are now in `render.yaml`; after the Blueprint/deploy reflects them, only `LLM_API_KEY` should need to be supplied as a secret for the default OpenAI path.
 - The complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY until a real model request passes.
 - The APK has compiled successfully, but the new G-OS shell has not yet been manually exercised on a physical Android device against a real model.
 - Persistence is JSON-file based and not production-grade.
@@ -96,11 +108,11 @@ Updated: 2026-09-05
 
 ## NEXT
 
-1. Add only the secret `LLM_API_KEY` to the Render service for the default OpenAI Responses path.
-2. Confirm Render picked up the non-secret `LLM_ENDPOINT`, `LLM_MODEL`, and `LLM_KIND` values from the Blueprint/deploy.
+1. While OpenAI API access is unavailable, use `G-OS-v0.1.1-debug.apk` only to verify the Android shell and the honest `MODEL OFFLINE / API WAITING` state.
+2. When API access becomes available, set only the secret `LLM_API_KEY` in Render.
 3. Re-run strict production smoke and require:
    TASK → RESULT → MEMORY → EXPERIENCE → FITNESS = PASS.
-4. Install/run the generated G-OS APK on the actual Android device and execute the same task through the UI.
+4. Run the same task from the actual Android UI against Render.
 5. Mark the Core vertical slice READY only after Android + Render + real model pass together.
 6. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
 7. Wire event-driven Achievements.
@@ -120,6 +132,7 @@ Updated: 2026-09-05
 - G-OS backend Core: CONNECTED + TESTED in CI and Render for non-model routes.
 - OpenAI Responses adapter: TESTED in CI.
 - Android G-OS shell: UI + API CONNECTED in code; APK BUILD TESTED.
+- Android model-offline behavior: TESTED by successful compile/build; physical-device UI check still pending.
 - AI ModelProvider on Render: WAITING FOR SECRET API KEY.
 - Full Core vertical slice: NOT READY.
 
