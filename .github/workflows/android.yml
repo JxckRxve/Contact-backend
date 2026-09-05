@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      # CI-driven versioning + stable cached dev key allow in-place Android updates.
       GOS_VERSION_CODE: ${{ github.run_number }}
       GOS_VERSION_NAME: 0.1.${{ github.run_number }}
 
