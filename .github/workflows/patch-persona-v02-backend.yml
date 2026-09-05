@@ -1,0 +1,114 @@
+name: Patch Persona System v0.2 backend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/patch-persona-v02-backend.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch Persona edit clone archive backend
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def insert_before(path, marker, block):
+              p=Path(path); s=p.read_text()
+              if block.strip() in s:
+                  return
+              if marker not in s:
+                  raise SystemExit(f'marker not found in {path}: {marker[:100]}')
+              s=s.replace(marker, block+marker, 1)
+              p.write_text(s)
+
+          standalone_block = r'''  function updatePersona(id,pid,b){
+    const p=ownedPersona(id,pid);if(!p)return{ok:false,error:"persona_not_found",status:404};
+    const changed=[];
+    if(Object.prototype.hasOwnProperty.call(b,"spaceId")){const s=ownedSpace(id,clean(b.spaceId,60));if(!s)return{ok:false,error:"space_not_found",status:404};if(p.spaceId!==s.id){p.spaceId=s.id;changed.push("spaceId");}}
+    for(const [field,max] of [["name",120],["role",120],["personality",3000]])if(Object.prototype.hasOwnProperty.call(b,field)){const v=clean(b[field],max);if(!v)return{ok:false,error:`${field}_required`,status:400};if(p[field]!==v){p[field]=v;changed.push(field);}}
+    if(Object.prototype.hasOwnProperty.call(b,"tools")){if(!Array.isArray(b.tools))return{ok:false,error:"invalid_tools",status:400};p.tools=b.tools.map(x=>clean(x,80)).filter(Boolean).slice(0,30);changed.push("tools");}
+    p.genome=p.genome&&typeof p.genome==="object"?p.genome:{};
+    if(Object.prototype.hasOwnProperty.call(b,"prompt")){p.genome.prompt=clean(b.prompt,4000);changed.push("genome.prompt");}
+    if(Object.prototype.hasOwnProperty.call(b,"planning")){p.genome.planning=clean(b.planning,80)||"direct";changed.push("genome.planning");}
+    if(Object.prototype.hasOwnProperty.call(b,"model")){p.genome.model=clean(b.model,80)||"auto";changed.push("genome.model");}
+    if(Object.prototype.hasOwnProperty.call(b,"communicationStyle")){p.genome.communicationStyle=clean(b.communicationStyle,120)||"natural";changed.push("genome.communicationStyle");}
+    p.genome.role=p.role;p.genome.tools=[...(p.tools||[])];p.updatedAt=now();
+    state.experienceEvents.push({id:crypto.randomUUID(),userId:id,spaceId:p.spaceId,personaId:p.id,type:"persona_updated",data:{changed},createdAt:p.updatedAt});persist();return{ok:true,persona:p};
+  }
+  function clonePersona(id,pid,b){
+    const source=ownedPersona(id,pid);if(!source)return{ok:false,error:"persona_not_found",status:404};
+    const space=Object.prototype.hasOwnProperty.call(b,"spaceId")?ownedSpace(id,clean(b.spaceId,60)):ownedSpace(id,source.spaceId);if(!space)return{ok:false,error:"space_not_found",status:404};
+    const newId=crypto.randomUUID();const clone=JSON.parse(JSON.stringify(source));clone.id=newId;clone.userId=id;clone.spaceId=space.id;clone.name=clean(b.name,120)||`${source.name} Copy`;clone.xp=0;clone.level=1;clone.status="active";clone.cloneOfPersonaId=source.id;clone.createdAt=now();clone.updatedAt=clone.createdAt;delete clone.archivedAt;
+    state.personas[newId]=clone;
+    const sourcePerms=state.permissions.filter(x=>x.userId===id&&x.personaId===source.id);if(sourcePerms.length){for(const x of sourcePerms)addPermission(id,newId,x.action,x.effect);}else{addPermission(id,newId,"model.call");addPermission(id,newId,"memory.write");}
+    state.experienceEvents.push({id:crypto.randomUUID(),userId:id,spaceId:clone.spaceId,personaId:newId,type:"persona_cloned",data:{sourcePersonaId:source.id,name:clone.name},createdAt:clone.createdAt});persist();return{ok:true,persona:clone};
+  }
+  function archivePersona(id,pid){
+    const p=ownedPersona(id,pid);if(!p)return{ok:false,error:"persona_not_found",status:404};const ts=now();p.status="archived";p.archivedAt=ts;p.updatedAt=ts;state.experienceEvents.push({id:crypto.randomUUID(),userId:id,spaceId:p.spaceId,personaId:p.id,type:"persona_archived",data:{name:p.name},createdAt:ts});persist();return{ok:true,persona:p};
+  }
+'''
+          insert_before('gos/standalone.js','  async function runTask',standalone_block)
+
+          p=Path('gos/standalone.js');s=p.read_text()
+          old='''if(req.method==="POST"&&url.pathname==="/api/gos/personas"){const out=createPersona(id,b);return json(res,out.ok?201:400,out);}if(req.method==="GET"&&url.pathname==="/api/gos/model-providers")'''
+          new='''if(req.method==="POST"&&url.pathname==="/api/gos/personas"){const out=createPersona(id,b);return json(res,out.ok?201:400,out);}const personaEdit=url.pathname.match(/^\\/api\\/gos\\/personas\\/([0-9a-fA-F-]{30,50})$/);if(req.method==="PATCH"&&personaEdit){const out=updatePersona(id,personaEdit[1],b);return json(res,out.ok?200:(out.status||400),out);}const personaClone=url.pathname.match(/^\\/api\\/gos\\/personas\\/([0-9a-fA-F-]{30,50})\\/clone$/);if(req.method==="POST"&&personaClone){const out=clonePersona(id,personaClone[1],b);return json(res,out.ok?201:(out.status||400),out);}const personaArchive=url.pathname.match(/^\\/api\\/gos\\/personas\\/([0-9a-fA-F-]{30,50})\\/archive$/);if(req.method==="POST"&&personaArchive){const out=archivePersona(id,personaArchive[1]);return json(res,out.ok?200:(out.status||400),out);}if(req.method==="GET"&&url.pathname==="/api/gos/model-providers")'''
+          if old not in s: raise SystemExit('standalone route marker not found')
+          p.write_text(s.replace(old,new,1))
+
+          core_block = r'''  function updatePersona(id,pid,b){
+    const p=ownedPersona(id,pid);if(!p)return{ok:false,error:"persona_not_found",status:404};const changed=[];
+    if(Object.prototype.hasOwnProperty.call(b,"spaceId")){const s=ownedSpace(id,clean(b.spaceId,60));if(!s)return{ok:false,error:"space_not_found",status:404};if(p.spaceId!==s.id){p.spaceId=s.id;changed.push("spaceId");}}
+    for(const [field,max] of [["name",120],["role",120],["personality",3000]])if(Object.prototype.hasOwnProperty.call(b,field)){const v=clean(b[field],max);if(!v)return{ok:false,error:`${field}_required`,status:400};if(p[field]!==v){p[field]=v;if(field==="personality")p.description=v;changed.push(field);}}
+    if(Object.prototype.hasOwnProperty.call(b,"tools")){if(!Array.isArray(b.tools))return{ok:false,error:"invalid_tools",status:400};p.tools=b.tools.map(x=>clean(x,80)).filter(Boolean).slice(0,30);changed.push("tools");}
+    p.genome=p.genome&&typeof p.genome==="object"?p.genome:{};
+    if(Object.prototype.hasOwnProperty.call(b,"prompt")){p.genome.prompt=clean(b.prompt,4000);changed.push("genome.prompt");}
+    if(Object.prototype.hasOwnProperty.call(b,"planning")){p.genome.planning=clean(b.planning,80)||"direct";changed.push("genome.planning");}
+    if(Object.prototype.hasOwnProperty.call(b,"model")){p.genome.model=clean(b.model,80)||"auto";changed.push("genome.model");}
+    if(Object.prototype.hasOwnProperty.call(b,"communicationStyle")){p.genome.communicationStyle=clean(b.communicationStyle,120)||"natural";changed.push("genome.communicationStyle");}
+    p.genome.role=p.role;p.genome.tools=[...(p.tools||[])];p.updatedAt=now();ensureStore().experienceEvents.push({id:crypto.randomUUID(),userId:id,spaceId:p.spaceId,personaId:p.id,type:"persona_updated",data:{changed},createdAt:p.updatedAt});persist();return{ok:true,persona:p};
+  }
+  function clonePersona(id,pid,b){
+    const source=ownedPersona(id,pid);if(!source)return{ok:false,error:"persona_not_found",status:404};const space=Object.prototype.hasOwnProperty.call(b,"spaceId")?ownedSpace(id,clean(b.spaceId,60)):ownedSpace(id,source.spaceId);if(!space)return{ok:false,error:"space_not_found",status:404};
+    const newId=crypto.randomUUID(),clone=JSON.parse(JSON.stringify(source));clone.id=newId;clone.conversationId=id;clone.spaceId=space.id;clone.name=clean(b.name,120)||`${source.name} Copy`;clone.xp=0;clone.level=1;clone.status="active";clone.cloneOfPersonaId=source.id;clone.permissionIds=[];clone.createdAt=now();clone.updatedAt=clone.createdAt;delete clone.archivedAt;state.personas[newId]=clone;
+    const sourcePerms=ensureStore().permissions.filter(x=>x.userId===id&&x.personaId===source.id);if(sourcePerms.length){for(const x of sourcePerms)addPermission(id,newId,x.action,x.effect);}else{addPermission(id,newId,"model.call");addPermission(id,newId,"memory.write");}
+    ensureStore().experienceEvents.push({id:crypto.randomUUID(),userId:id,spaceId:clone.spaceId,personaId:newId,type:"persona_cloned",data:{sourcePersonaId:source.id,name:clone.name},createdAt:clone.createdAt});persist();return{ok:true,persona:clone};
+  }
+  function archivePersona(id,pid){const p=ownedPersona(id,pid);if(!p)return{ok:false,error:"persona_not_found",status:404};const ts=now();p.status="archived";p.archivedAt=ts;p.updatedAt=ts;ensureStore().experienceEvents.push({id:crypto.randomUUID(),userId:id,spaceId:p.spaceId,personaId:p.id,type:"persona_archived",data:{name:p.name},createdAt:ts});persist();return{ok:true,persona:p};}
+'''
+          insert_before('gos/core.js','  async function runTask',core_block)
+          p=Path('gos/core.js');s=p.read_text()
+          old='''    if(req.method==="POST"&&url.pathname==="/api/gos/personas"){const out=createPersona(id,b);return json(res,out.ok?201:400,out);}\n    if(req.method==="GET"&&url.pathname==="/api/gos/model-providers")'''
+          new='''    if(req.method==="POST"&&url.pathname==="/api/gos/personas"){const out=createPersona(id,b);return json(res,out.ok?201:400,out);}\n    const personaEdit=url.pathname.match(/^\\/api\\/gos\\/personas\\/([0-9a-fA-F-]{30,50})$/);if(req.method==="PATCH"&&personaEdit){const out=updatePersona(id,personaEdit[1],b);return json(res,out.ok?200:(out.status||400),out);}\n    const personaClone=url.pathname.match(/^\\/api\\/gos\\/personas\\/([0-9a-fA-F-]{30,50})\\/clone$/);if(req.method==="POST"&&personaClone){const out=clonePersona(id,personaClone[1],b);return json(res,out.ok?201:(out.status||400),out);}\n    const personaArchive=url.pathname.match(/^\\/api\\/gos\\/personas\\/([0-9a-fA-F-]{30,50})\\/archive$/);if(req.method==="POST"&&personaArchive){const out=archivePersona(id,personaArchive[1]);return json(res,out.ok?200:(out.status||400),out);}\n    if(req.method==="GET"&&url.pathname==="/api/gos/model-providers")'''
+          if old not in s: raise SystemExit('core route marker not found')
+          p.write_text(s.replace(old,new,1))
+
+          p=Path('tests/gos-core-smoke.js');s=p.read_text()
+          old='''    assert(persona.status === 201 && persona.body.persona?.id, "persona creation failed");\n\n    const cycle = await request("/api/gos/tasks/run", {\n      method:"POST",\n      body:{conversationId,installSecret,spaceId:home.id,personaId:persona.body.persona.id,input:"Return the first working G-OS result."}\n    });'''
+          new='''    assert(persona.status === 201 && persona.body.persona?.id, "persona creation failed");\n    const originalPersonaId = persona.body.persona.id;\n\n    const edited = await request(`/api/gos/personas/${originalPersonaId}`, {\n      method:"PATCH",\n      body:{conversationId,installSecret,name:"Core Tester Edited",role:"senior analyst",personality:"Precise, concise, evidence-first",tools:["research"],planning:"structured",communicationStyle:"direct"}\n    });\n    assert(edited.status === 200 && edited.body.persona?.name === "Core Tester Edited", "persona edit failed");\n    assert(edited.body.persona?.genome?.planning === "structured", "genome edit failed");\n\n    const cloned = await request(`/api/gos/personas/${originalPersonaId}/clone`, {\n      method:"POST",\n      body:{conversationId,installSecret,name:"Core Tester Clone"}\n    });\n    assert(cloned.status === 201 && cloned.body.persona?.id && cloned.body.persona.id !== originalPersonaId, "persona clone failed");\n    assert(cloned.body.persona?.xp === 0 && cloned.body.persona?.level === 1, "clone progress must reset");\n    assert(cloned.body.persona?.cloneOfPersonaId === originalPersonaId, "clone source missing");\n\n    const archived = await request(`/api/gos/personas/${originalPersonaId}/archive`, {\n      method:"POST",\n      body:{conversationId,installSecret}\n    });\n    assert(archived.status === 200 && archived.body.persona?.status === "archived", "persona archive failed");\n\n    const activePersonas = await request(`/api/gos/personas?conversationId=${conversationId}&installSecret=${installSecret}&spaceId=${home.id}`);\n    assert(!activePersonas.body.items.some(x => x.id === originalPersonaId), "archived persona still active");\n    assert(activePersonas.body.items.some(x => x.id === cloned.body.persona.id), "cloned persona missing");\n\n    const cycle = await request("/api/gos/tasks/run", {\n      method:"POST",\n      body:{conversationId,installSecret,spaceId:home.id,personaId:cloned.body.persona.id,input:"Return the first working G-OS result."}\n    });'''
+          if old not in s: raise SystemExit('test marker not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+
+      - name: Syntax check patched backend
+        run: |
+          node --check gos/standalone.js
+          node --check gos/core.js
+          node --check tests/gos-core-smoke.js
+
+      - name: Commit backend patch
+        run: |
+          git config user.name 'G-OS Builder'
+          git config user.email 'contact-builder@users.noreply.github.com'
+          git add gos/standalone.js gos/core.js tests/gos-core-smoke.js
+          git commit -m 'Add Persona edit clone archive backend'
+          git push origin main
