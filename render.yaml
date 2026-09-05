@@ -5,7 +5,7 @@ services:
     plan: free
     region: frankfurt
     buildCommand: ""
-    startCommand: node server.js
+    startCommand: node gos-server.js
     autoDeploy: true
     envVars:
       - key: PORT
@@ -24,3 +24,5 @@ services:
         sync: false
       - key: LLM_MODEL
         sync: false
+      - key: GOS_DB_PATH
+        value: /opt/render/project/src/gos-data.json
