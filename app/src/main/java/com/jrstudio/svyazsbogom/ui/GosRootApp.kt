@@ -82,6 +82,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
     var selectedSpace by remember { mutableStateOf<GosSpace?>(null) }
     var selectedPersona by remember { mutableStateOf<GosPersona?>(null) }
     var stateInfo by remember { mutableStateOf<GosStateResponse?>(null) }
+    val configuredProvider = stateInfo?.providers?.firstOrNull { it.configured }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -136,6 +137,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
         when (screen) {
             GosScreen.HOME -> GosHome(
                 stateInfo = stateInfo,
+                modelProvider = configuredProvider,
                 loading = loading,
                 error = error,
                 onSpaces = { screen = GosScreen.SPACES },
@@ -173,6 +175,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
                 identitySecret = identity.installSecret,
                 space = selectedSpace,
                 persona = selectedPersona,
+                modelProvider = configuredProvider,
                 onBack = { screen = GosScreen.PERSONAS },
                 onCoreChanged = { scope.launch { loadCore() } }
             )
@@ -183,6 +186,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
 @Composable
 private fun GosHome(
     stateInfo: GosStateResponse?,
+    modelProvider: GosModelProvider?,
     loading: Boolean,
     error: String?,
     onSpaces: () -> Unit,
@@ -224,7 +228,10 @@ private fun GosHome(
             GosMetric("FITNESS", counts.fitnessRecords.toString(), Modifier.weight(1f))
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(18.dp))
+        GosModelStatus(modelProvider = modelProvider, loading = loading)
+
+        Spacer(Modifier.height(14.dp))
         GosNavCard(
             icon = Icons.Rounded.Hub,
             title = "SPACES / PERSONAS",
@@ -419,6 +426,7 @@ private fun GosTaskRunner(
     identitySecret: String,
     space: GosSpace?,
     persona: GosPersona?,
+    modelProvider: GosModelProvider?,
     onBack: () -> Unit,
     onCoreChanged: () -> Unit
 ) {
@@ -447,6 +455,9 @@ private fun GosTaskRunner(
             }
         }
 
+        Spacer(Modifier.height(10.dp))
+        GosModelStatus(modelProvider = modelProvider, loading = false)
+
         Spacer(Modifier.height(14.dp))
         Text("TASK", color = GosMuted, fontSize = 9.sp, letterSpacing = 1.5.sp)
         GosInput(input, { input = it }, "Give this Persona a concrete task…", minLines = 5)
@@ -474,17 +485,26 @@ private fun GosTaskRunner(
                     running = false
                 }
             },
-            enabled = input.isNotBlank() && !running,
+            enabled = input.isNotBlank() && !running && modelProvider != null,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             colors = ButtonDefaults.buttonColors(containerColor = GosPurple),
             shape = RoundedCornerShape(17.dp)
         ) {
             Icon(Icons.Rounded.PlayArrow, null)
             Spacer(Modifier.width(7.dp))
-            Text(if (running) "RUNNING CORE LOOP…" else "RUN TASK")
+            Text(
+                when {
+                    running -> "RUNNING CORE LOOP…"
+                    modelProvider == null -> "WAITING FOR API"
+                    else -> "RUN TASK"
+                }
+            )
         }
 
         if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = GosPurpleBright)
+        if (modelProvider == null) {
+            Text("Core is ready. AI execution is locked until the API key is connected.", color = GosMuted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 8.dp))
+        }
         error?.let { Text(it, color = GosRed, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp)) }
 
         response?.takeIf { it.ok }?.let { out ->
@@ -532,6 +552,46 @@ private fun GosMetric(label: String, value: String, modifier: Modifier = Modifie
         Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
             Text(value, color = GosText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Text(label, color = GosMuted, fontSize = 7.5.sp, letterSpacing = .6.sp)
+        }
+    }
+}
+
+@Composable
+private fun GosModelStatus(modelProvider: GosModelProvider?, loading: Boolean) {
+    val online = modelProvider != null
+    Surface(
+        color = if (online) GosGreen.copy(alpha = .08f) else GosSurface2,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, if (online) GosGreen.copy(alpha = .28f) else GosPurple.copy(alpha = .18f), RoundedCornerShape(16.dp))
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (online) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff,
+                null,
+                tint = if (online) GosGreen else GosMuted,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    when {
+                        loading -> "MODEL CHECKING"
+                        online -> "MODEL CONNECTED"
+                        else -> "MODEL OFFLINE / API WAITING"
+                    },
+                    color = if (online) GosGreen else GosText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = .6.sp
+                )
+                Text(
+                    if (online) "${modelProvider?.label} • ${modelProvider?.model ?: "model"}" else "Core works without pretending an AI call is available.",
+                    color = GosMuted,
+                    fontSize = 8.5.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            GosBadge(if (online) "CONNECTED" else "WAITING")
         }
     }
 }
