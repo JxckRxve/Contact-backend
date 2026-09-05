@@ -1,6 +1,8 @@
 .env
 .env.*
 data.json
+gos-data.json
+INVENTION_LOG.md
 *.log
 node_modules/
 .DS_Store
