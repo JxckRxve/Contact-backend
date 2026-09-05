@@ -1,4 +1,4 @@
-name: Build CONTACT APK
+name: Build G-OS APK
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -40,12 +40,12 @@ jobs:
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk CONTACT-v0.5.0-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk G-OS-v0.1-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CONTACT-debug-apk
-          path: CONTACT-v0.5.0-debug.apk
+          name: G-OS-debug-apk
+          path: G-OS-v0.1-debug.apk
           if-no-files-found: error
           retention-days: 14
