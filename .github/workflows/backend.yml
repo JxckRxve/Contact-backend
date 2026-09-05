@@ -1,0 +1,32 @@
+name: Test G-OS Core
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server.js'
+      - 'gos-server.js'
+      - 'gos/**'
+      - 'ai/**'
+      - 'tests/**'
+      - 'package.json'
+      - '.github/workflows/backend.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: |
+          node --check gos-server.js
+          node --check gos/standalone.js
+          node --check server.js
+      - name: G-OS Core integration test
+        run: npm test
