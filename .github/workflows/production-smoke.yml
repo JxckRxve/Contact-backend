@@ -15,39 +15,42 @@ jobs:
   production-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      BASE_URL: https://contact-backend-u3ug.onrender.com
     steps:
-      - name: Verify Render G-OS full loop
-        env:
-          BASE_URL: https://contact-backend-u3ug.onrender.com
+      - name: Core deploy is reachable
         run: |
           set -euo pipefail
-
-          echo "Checking Render health..."
           ready=0
           for i in $(seq 1 18); do
             if curl -fsS --max-time 20 "$BASE_URL/health" > /tmp/health.json; then
-              if grep -q '"ok":true' /tmp/health.json; then
-                ready=1
-                break
-              fi
+              if grep -q '"ok":true' /tmp/health.json; then ready=1; break; fi
             fi
             sleep 10
           done
           test "$ready" = "1"
-          cat /tmp/health.json
 
           ID=$(cat /proc/sys/kernel/random/uuid)
           SECRET="$(cat /proc/sys/kernel/random/uuid)$(cat /proc/sys/kernel/random/uuid)"
+          echo "ID=$ID" >> "$GITHUB_ENV"
+          echo "SECRET=$SECRET" >> "$GITHUB_ENV"
           QID=$(printf '%s' "$ID" | jq -sRr @uri)
           QSECRET=$(printf '%s' "$SECRET" | jq -sRr @uri)
+          echo "QID=$QID" >> "$GITHUB_ENV"
+          echo "QSECRET=$QSECRET" >> "$GITHUB_ENV"
 
           curl -fsS --max-time 30 "$BASE_URL/api/gos/state?conversationId=$QID&installSecret=$QSECRET" > /tmp/state.json
           node -e 'const x=require("/tmp/state.json"); if(!x.ok || !x.counts || x.counts.spaces < 1) process.exit(1)'
 
           curl -fsS --max-time 30 "$BASE_URL/api/gos/spaces?conversationId=$QID&installSecret=$QSECRET" > /tmp/spaces.json
           HOME_ID=$(node -e 'const x=require("/tmp/spaces.json"); const s=(x.items||[]).find(v=>v.key==="HOME"); if(!s) process.exit(2); process.stdout.write(s.id)')
+          echo "HOME_ID=$HOME_ID" >> "$GITHUB_ENV"
 
+      - name: Real AI provider is configured
+        run: |
+          set -euo pipefail
           curl -fsS --max-time 30 "$BASE_URL/api/gos/model-providers?conversationId=$QID&installSecret=$QSECRET" > /tmp/providers.json
+          cat /tmp/providers.json
           node - <<'NODE'
           const x = require('/tmp/providers.json');
           const configured = (x.items || []).filter(p => p.configured);
@@ -59,6 +62,9 @@ jobs:
           console.log(configured.map(p => `${p.id}:${p.model}`).join(','));
           NODE
 
+      - name: Full Task Result Memory Experience Fitness loop
+        run: |
+          set -euo pipefail
           jq -n \
             --arg conversationId "$ID" \
             --arg installSecret "$SECRET" \
@@ -83,7 +89,5 @@ jobs:
           if (!x.task || x.task.status !== 'completed' || !x.task.result) process.exit(2);
           if (!x.memory || !x.experience || !x.fitness) process.exit(3);
           if (Number(x.fitness.success) !== 1) process.exit(4);
-          console.log('FULL_LOOP_OK');
+          console.log('PRODUCTION_GOS_FULL_LOOP_OK');
           NODE
-
-          echo "PRODUCTION_GOS_FULL_LOOP_OK"
