@@ -7,7 +7,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "node gos-server.js",
     "test": "node tests/gos-core-smoke.js"
   }
 }
