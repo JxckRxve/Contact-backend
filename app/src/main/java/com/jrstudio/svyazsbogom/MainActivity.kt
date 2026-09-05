@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
-import com.jrstudio.svyazsbogom.ui.SvyazSBogomApp
+import com.jrstudio.svyazsbogom.ui.GosRootApp
 import com.jrstudio.svyazsbogom.ui.theme.SvyazSBogomTheme
 import com.jrstudio.svyazsbogom.util.scheduleReplyWatch
 
@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         scheduleReplyWatch(this)
         setContent {
             SvyazSBogomTheme {
-                SvyazSBogomApp()
+                GosRootApp()
             }
         }
     }
