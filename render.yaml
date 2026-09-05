@@ -19,10 +19,12 @@ services:
       - key: MESSAGE_LIMIT_PER_HOUR
         value: "30"
       - key: LLM_ENDPOINT
-        sync: false
+        value: https://api.openai.com/v1/responses
       - key: LLM_API_KEY
         sync: false
       - key: LLM_MODEL
-        sync: false
+        value: gpt-5.6-luna
+      - key: LLM_KIND
+        value: openai-responses
       - key: GOS_DB_PATH
         value: /opt/render/project/src/gos-data.json
