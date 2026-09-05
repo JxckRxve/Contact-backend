@@ -9,12 +9,15 @@ Updated: 2026-09-05
 - Added G-OS Core v0.1 as an isolated backend layer.
 - Added base Space creation per install-scoped user.
 - Added G-OS Persona creation with Space ownership, role, personality, tools, permissions, XP, level and Agent Genome v0.1.
-- Added ModelProvider abstraction through the existing OpenAI-compatible provider/router layer.
+- Added ModelProvider abstraction through the existing provider/router layer.
+- Added generic OpenAI-compatible Chat Completions provider support.
+- Added native `openai-responses` provider support for the OpenAI Responses API.
 - Added Task, Memory, ExperienceEvent and FitnessRecord persistence.
 - Added the first backend vertical task cycle:
   USER → SPACE → PERSONA → TASK → MODEL → RESULT → MEMORY → EXPERIENCE → FITNESS.
 - Added independent fitness history.
-- Added backend syntax + integration smoke workflow; CI passes.
+- Added backend syntax + integration smoke workflow.
+- G-OS Core + OpenAI Responses adapter integration test passes in CI.
 - Runtime entrypoint is `gos-server.js`, which intercepts only `/api/gos/*` and delegates legacy routes to the preserved CONTACT server.
 - Added `CURRENT_STATE.md`.
 - Added private-file protection for `INVENTION_LOG.md` and `gos-data.json` through `.gitignore`.
@@ -29,6 +32,11 @@ Updated: 2026-09-05
 - Android G-OS APK build passed on GitHub Actions; `G-OS-debug-apk` artifact was generated successfully.
 - Production Render smoke verified that `/health`, `/api/gos/state`, Spaces and Persona creation are live.
 - Added strict production smoke that refuses to mark the vertical loop complete unless a real AI provider is configured and Task → Result → Memory → Experience → Fitness succeeds.
+- Render blueprint now contains non-secret OpenAI defaults:
+  - `LLM_ENDPOINT=https://api.openai.com/v1/responses`
+  - `LLM_MODEL=gpt-5.6-luna`
+  - `LLM_KIND=openai-responses`
+- `.env.example` documents Responses and generic provider modes.
 
 ## WORKING
 
@@ -66,14 +74,17 @@ Updated: 2026-09-05
 - Legacy CONTACT entry.
 - APK compilation and artifact generation are TESTED.
 
+### Model routing
+- OpenAI-compatible Chat Completions: TESTED by previous Core path.
+- OpenAI Responses adapter: TESTED in current CI with a mock Responses server.
+- Local/self-hosted OpenAI-compatible abstraction remains available.
+
 ## ISSUES
 
-- Production Render currently reports ZERO configured AI providers:
-  - Primary: not configured.
-  - Secondary: not configured.
-  - Local/self-hosted: not configured.
-- Because no model provider is configured, the strict production full-loop smoke correctly fails at the `Real AI provider is configured` stage and skips the real Task execution stage.
-- Therefore the complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY yet.
+- Production Render still has no secret API key configured, so no provider can make a real paid/model request yet.
+- The strict production full-loop smoke therefore correctly fails at `Real AI provider is configured` and does not mark Core READY.
+- Non-secret endpoint/model/kind defaults are now in `render.yaml`; after the Blueprint/deploy reflects them, only `LLM_API_KEY` should need to be supplied as a secret for the default OpenAI path.
+- The complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY until a real model request passes.
 - The APK has compiled successfully, but the new G-OS shell has not yet been manually exercised on a physical Android device against a real model.
 - Persistence is JSON-file based and not production-grade.
 - G-OS and legacy CONTACT currently use separate prototype data stores to prevent accidental legacy corruption; deliberate DB migration/unification is required later.
@@ -85,18 +96,15 @@ Updated: 2026-09-05
 
 ## NEXT
 
-1. Configure one real ModelProvider on Render. Existing backward-compatible minimum variables are:
-   - `LLM_ENDPOINT`
-   - `LLM_API_KEY`
-   - `LLM_MODEL`
-   New provider-specific `CONTACT_AI_PRIMARY_*` variables can be used later.
-2. Re-run strict production smoke and require:
+1. Add only the secret `LLM_API_KEY` to the Render service for the default OpenAI Responses path.
+2. Confirm Render picked up the non-secret `LLM_ENDPOINT`, `LLM_MODEL`, and `LLM_KIND` values from the Blueprint/deploy.
+3. Re-run strict production smoke and require:
    TASK → RESULT → MEMORY → EXPERIENCE → FITNESS = PASS.
-3. Run/install the generated G-OS APK on the actual Android device and execute the same task through the UI.
-4. Mark the Core vertical slice READY only after Android + Render + real model pass together.
-5. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
-6. Wire event-driven Achievements.
-7. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
+4. Install/run the generated G-OS APK on the actual Android device and execute the same task through the UI.
+5. Mark the Core vertical slice READY only after Android + Render + real model pass together.
+6. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
+7. Wire event-driven Achievements.
+8. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
 
 ## STATUS MODEL
 
@@ -110,8 +118,9 @@ Updated: 2026-09-05
 
 - Legacy CONTACT: WORKING / PRESERVED.
 - G-OS backend Core: CONNECTED + TESTED in CI and Render for non-model routes.
+- OpenAI Responses adapter: TESTED in CI.
 - Android G-OS shell: UI + API CONNECTED in code; APK BUILD TESTED.
-- AI ModelProvider on Render: NOT CONNECTED.
+- AI ModelProvider on Render: WAITING FOR SECRET API KEY.
 - Full Core vertical slice: NOT READY.
 
 ## CURRENT OBJECTIVE
