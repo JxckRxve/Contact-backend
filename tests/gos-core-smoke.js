@@ -128,6 +128,28 @@ async function main() {
     assert(activePersonas.body.items.some(x => x.id === cloned.body.persona.id), "cloned persona missing");
 
 
+    const memorySchema = await request(`/api/gos/memory/schema?conversationId=${conversationId}&installSecret=${installSecret}`);
+    assert(memorySchema.status === 200 && memorySchema.body.schema?.active?.includes("agent"), "memory schema missing active types");
+    assert(memorySchema.body.schema?.placeholder?.includes("lineage"), "memory schema placeholders missing");
+
+    const personalMemory = await request("/api/gos/memory", {method:"POST",body:{conversationId,installSecret,type:"personal",text:"The user prefers concise cold purple interfaces."}});
+    assert(personalMemory.status === 201 && personalMemory.body.item?.type === "personal", "personal memory create failed");
+    const spaceMemory = await request("/api/gos/memory", {method:"POST",body:{conversationId,installSecret,type:"space",spaceId:home.id,text:"HOME is the base control center for core operations."}});
+    assert(spaceMemory.status === 201 && spaceMemory.body.item?.scope === "space", "space memory create failed");
+    const agentMemory = await request("/api/gos/memory", {method:"POST",body:{conversationId,installSecret,type:"agent",personaId:cloned.body.persona.id,text:"Core Tester Clone specializes in evidence-first analysis."}});
+    assert(agentMemory.status === 201 && agentMemory.body.item?.personaId === cloned.body.persona.id, "agent memory create failed");
+    const workingMemory = await request("/api/gos/memory", {method:"POST",body:{conversationId,installSecret,type:"working",spaceId:home.id,personaId:cloned.body.persona.id,ttlMinutes:30,text:"Current benchmark focus is evidence analysis."}});
+    assert(workingMemory.status === 201 && workingMemory.body.item?.expiresAt > workingMemory.body.item?.createdAt, "working memory TTL missing");
+
+    const retrieval = await request(`/api/gos/memory/retrieve?conversationId=${conversationId}&installSecret=${installSecret}&spaceId=${home.id}&personaId=${cloned.body.persona.id}&q=evidence%20analysis&limit=10`);
+    assert(retrieval.status === 200 && retrieval.body.items?.length >= 2, "Memory Core v0.1 retrieval failed");
+    assert(retrieval.body.items.some(x => x.memory?.id === agentMemory.body.item.id), "agent memory not retrieved for its Persona");
+    assert(retrieval.body.items[0]?.score >= retrieval.body.items[retrieval.body.items.length-1]?.score, "retrieval scores not sorted");
+    assert(Array.isArray(retrieval.body.items[0]?.reasons), "retrieval reasons missing");
+
+    const globalRetrieval = await request(`/api/gos/memory/retrieve?conversationId=${conversationId}&installSecret=${installSecret}&q=evidence%20analysis`);
+    assert(!globalRetrieval.body.items.some(x => x.memory?.id === agentMemory.body.item.id), "agent memory leaked outside Persona scope");
+
     const cycle = await request("/api/gos/tasks/run", {
       method:"POST",
       body:{conversationId,installSecret,spaceId:home.id,personaId:cloned.body.persona.id,input:"Return the first working G-OS result."}
@@ -141,7 +163,7 @@ async function main() {
 
     const state = await request(`/api/gos/state?conversationId=${conversationId}&installSecret=${installSecret}`);
     assert(state.body.counts.tasks === 1, "task persistence failed");
-    assert(state.body.counts.memories === 1, "memory persistence failed");
+    assert(state.body.counts.memories >= 5, "memory persistence failed");
     assert(state.body.counts.fitnessRecords === 1, "fitness persistence failed");
 
     console.log("PASS G-OS CORE + OPENAI RESPONSES: USER -> SPACE -> PERSONA -> TASK -> RESULT -> MEMORY -> EXPERIENCE -> FITNESS");
