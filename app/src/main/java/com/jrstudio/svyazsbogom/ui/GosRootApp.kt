@@ -36,7 +36,13 @@ private val GosMuted = Color(0xFFA79CAF)
 private val GosGreen = Color(0xFF92E6B7)
 private val GosRed = Color(0xFFFF9AA8)
 
-private enum class GosScreen { HOME, SPACES, PERSONAS, TASK }
+private enum class GosScreen { HOME, DIAGNOSTICS, SPACES, PERSONAS, TASK }
+
+private data class GosDiagnosticItem(
+    val label: String,
+    val detail: String,
+    val ok: Boolean?
+)
 
 @Composable
 fun GosRootApp() {
@@ -119,6 +125,7 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
             GosScreen.TASK -> GosScreen.PERSONAS
             GosScreen.PERSONAS -> GosScreen.SPACES
             GosScreen.SPACES -> GosScreen.HOME
+            GosScreen.DIAGNOSTICS -> GosScreen.HOME
             GosScreen.HOME -> GosScreen.HOME
         }
     }
@@ -141,8 +148,15 @@ private fun GosControlCenter(onOpenLegacy: () -> Unit) {
                 loading = loading,
                 error = error,
                 onSpaces = { screen = GosScreen.SPACES },
+                onDiagnostics = { screen = GosScreen.DIAGNOSTICS },
                 onLegacy = onOpenLegacy,
                 onRefresh = { scope.launch { loadCore() } }
+            )
+            GosScreen.DIAGNOSTICS -> GosDiagnostics(
+                identityId = identity.conversationId,
+                identitySecret = identity.installSecret,
+                onBack = { screen = GosScreen.HOME },
+                onCoreChanged = { scope.launch { loadCore() } }
             )
             GosScreen.SPACES -> GosSpaces(
                 spaces = spaces,
@@ -190,6 +204,7 @@ private fun GosHome(
     loading: Boolean,
     error: String?,
     onSpaces: () -> Unit,
+    onDiagnostics: () -> Unit,
     onLegacy: () -> Unit,
     onRefresh: () -> Unit
 ) {
@@ -233,6 +248,13 @@ private fun GosHome(
 
         Spacer(Modifier.height(14.dp))
         GosNavCard(
+            icon = Icons.Rounded.MonitorHeart,
+            title = "CORE DIAGNOSTICS",
+            subtitle = "Verify auth, Render Core, Spaces, Persona API and ModelProvider",
+            badge = "SELF-TEST",
+            onClick = onDiagnostics
+        )
+        GosNavCard(
             icon = Icons.Rounded.Hub,
             title = "SPACES / PERSONAS",
             subtitle = "Run the first real G-OS Core loop",
@@ -272,6 +294,142 @@ private fun GosHome(
             fontSize = 8.5.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 10.dp)
         )
+    }
+}
+
+@Composable
+private fun GosDiagnostics(
+    identityId: String,
+    identitySecret: String,
+    onBack: () -> Unit,
+    onCoreChanged: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var running by remember { mutableStateOf(false) }
+    var lastRun by remember { mutableStateOf<Long?>(null) }
+    var items by remember { mutableStateOf<List<GosDiagnosticItem>>(emptyList()) }
+    var fatalError by remember { mutableStateOf<String?>(null) }
+
+    suspend fun runSelfTest() {
+        running = true
+        fatalError = null
+        items = emptyList()
+        val result = mutableListOf<GosDiagnosticItem>()
+
+        runCatching {
+            val core = ApiClient.api.gosState(identityId, identitySecret)
+            if (!core.ok) error(core.error ?: "Core state returned not-ok")
+            result += GosDiagnosticItem("INSTALL IDENTITY / AUTH", "Install-scoped identity accepted by Core", true)
+            result += GosDiagnosticItem("RENDER / G-OS CORE", "Core v${core.version ?: "0.1"} responded", true)
+
+            val spaces = ApiClient.api.gosSpaces(identityId, identitySecret)
+            if (!spaces.ok) error(spaces.error ?: "Spaces API returned not-ok")
+            val home = spaces.items.firstOrNull { it.key == "HOME" }
+            result += GosDiagnosticItem(
+                "BASE SPACES",
+                if (home != null) "${spaces.items.size} Spaces available; HOME present" else "HOME Space missing",
+                home != null
+            )
+
+            if (home != null) {
+                val personas = ApiClient.api.gosPersonas(identityId, identitySecret, home.id)
+                result += GosDiagnosticItem(
+                    "PERSONA API",
+                    if (personas.ok) "Connected; ${personas.items.size} Persona(s) in HOME" else (personas.error ?: "Persona API failed"),
+                    personas.ok
+                )
+            } else {
+                result += GosDiagnosticItem("PERSONA API", "Skipped because HOME is missing", false)
+            }
+
+            val provider = core.providers.firstOrNull { it.configured }
+            result += GosDiagnosticItem(
+                "MODEL PROVIDER",
+                if (provider != null) "${provider.label} • ${provider.model ?: "model"} • CONNECTED" else "API WAITING — expected until the secret key is available",
+                if (provider != null) true else null
+            )
+            result += GosDiagnosticItem(
+                "FULL TASK LOOP",
+                if (provider != null) "Ready for explicit real Task Runner test" else "Blocked only by external model API key",
+                if (provider != null) true else null
+            )
+        }.onFailure {
+            fatalError = it.message ?: "Core diagnostics failed"
+            if (result.isEmpty()) {
+                result += GosDiagnosticItem("CORE CONNECTION", fatalError ?: "Connection failed", false)
+            }
+        }
+
+        items = result
+        lastRun = System.currentTimeMillis()
+        running = false
+        onCoreChanged()
+    }
+
+    LaunchedEffect(Unit) { runSelfTest() }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        GosHeader("CORE DIAGNOSTICS", "No paid AI calls", onBack)
+
+        Surface(
+            color = GosSurface,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, GosPurple.copy(alpha = .2f), RoundedCornerShape(18.dp))
+        ) {
+            Column(Modifier.padding(14.dp)) {
+                Text("SELF-TEST", color = GosPurpleBright, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                Text("Checks the real runtime instead of trusting UI buttons.", color = GosText, fontSize = 13.sp, modifier = Modifier.padding(top = 5.dp))
+                Text("Model execution is never triggered here, so this test cannot spend API tokens.", color = GosMuted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { scope.launch { runSelfTest() } },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GosPurple),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Rounded.MonitorHeart, null)
+            Spacer(Modifier.width(7.dp))
+            Text(if (running) "TESTING CORE…" else "RUN SELF-TEST")
+        }
+        if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = GosPurpleBright)
+        lastRun?.let { Text("Last run: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(it))}", color = GosMuted, fontSize = 8.sp, modifier = Modifier.padding(top = 6.dp)) }
+        fatalError?.let { Text(it, color = GosRed, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp)) }
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp)
+        ) {
+            items(items, key = { it.label }) { item ->
+                Surface(color = GosSurface2, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            when (item.ok) {
+                                true -> Icons.Rounded.CheckCircle
+                                false -> Icons.Rounded.Cancel
+                                null -> Icons.Rounded.HourglassTop
+                            },
+                            null,
+                            tint = when (item.ok) {
+                                true -> GosGreen
+                                false -> GosRed
+                                null -> GosPurpleBright
+                            },
+                            modifier = Modifier.size(21.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.label, color = GosText, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                            Text(item.detail, color = GosMuted, fontSize = 9.sp, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        GosBadge(when (item.ok) { true -> "PASS"; false -> "FAIL"; null -> "WAIT" })
+                    }
+                }
+            }
+        }
     }
 }
 
