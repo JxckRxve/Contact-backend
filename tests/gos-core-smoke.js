@@ -113,10 +113,24 @@ async function main() {
       body:{conversationId,installSecret,spaceId:home.id,name:"Core Tester",role:"analyst",personality:"Precise and concise"}
     });
     assert(persona.status === 201 && persona.body.persona?.id, "persona creation failed");
+    const originalPersonaId = persona.body.persona.id;
+    const edited = await request(`/api/gos/personas/${originalPersonaId}`, {method:"PATCH",body:{conversationId,installSecret,name:"Core Tester Edited",role:"senior analyst",personality:"Precise, concise, evidence-first",tools:["research"],planning:"structured",communicationStyle:"direct"}});
+    assert(edited.status === 200 && edited.body.persona?.name === "Core Tester Edited", "persona edit failed");
+    assert(edited.body.persona?.genome?.planning === "structured", "genome edit failed");
+    const cloned = await request(`/api/gos/personas/${originalPersonaId}/clone`, {method:"POST",body:{conversationId,installSecret,name:"Core Tester Clone"}});
+    assert(cloned.status === 201 && cloned.body.persona?.id && cloned.body.persona.id !== originalPersonaId, "persona clone failed");
+    assert(cloned.body.persona?.xp === 0 && cloned.body.persona?.level === 1, "clone progress must reset");
+    assert(cloned.body.persona?.cloneOfPersonaId === originalPersonaId, "clone source missing");
+    const archived = await request(`/api/gos/personas/${originalPersonaId}/archive`, {method:"POST",body:{conversationId,installSecret}});
+    assert(archived.status === 200 && archived.body.persona?.status === "archived", "persona archive failed");
+    const activePersonas = await request(`/api/gos/personas?conversationId=${conversationId}&installSecret=${installSecret}&spaceId=${home.id}`);
+    assert(!activePersonas.body.items.some(x => x.id === originalPersonaId), "archived persona still active");
+    assert(activePersonas.body.items.some(x => x.id === cloned.body.persona.id), "cloned persona missing");
+
 
     const cycle = await request("/api/gos/tasks/run", {
       method:"POST",
-      body:{conversationId,installSecret,spaceId:home.id,personaId:persona.body.persona.id,input:"Return the first working G-OS result."}
+      body:{conversationId,installSecret,spaceId:home.id,personaId:cloned.body.persona.id,input:"Return the first working G-OS result."}
     });
     assert(cycle.status === 200 && cycle.body.ok, "task cycle failed");
     assert(cycle.body.task?.status === "completed", "task not completed");
