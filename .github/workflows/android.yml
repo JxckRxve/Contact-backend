@@ -40,12 +40,12 @@ jobs:
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk G-OS-v0.1.2-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk G-OS-v0.1.3-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: G-OS-v0.1.2-debug-apk
-          path: G-OS-v0.1.2-debug.apk
+          name: G-OS-v0.1.3-debug-apk
+          path: G-OS-v0.1.3-debug.apk
           if-no-files-found: error
           retention-days: 14
