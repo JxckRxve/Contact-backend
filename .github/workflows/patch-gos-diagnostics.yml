@@ -1,0 +1,59 @@
+name: Patch G-OS Core diagnostics
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/patch-gos-diagnostics.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch diagnostics screen
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/jrstudio/svyazsbogom/ui/GosRootApp.kt')
+          s = p.read_text()
+
+          reps = [
+          ('private enum class GosScreen { HOME, SPACES, PERSONAS, TASK }',
+           'private enum class GosScreen { HOME, DIAGNOSTICS, SPACES, PERSONAS, TASK }\n\nprivate data class GosDiagnosticItem(\n    val label: String,\n    val detail: String,\n    val ok: Boolean?\n)'),
+          ('''            GosScreen.TASK -> GosScreen.PERSONAS\n            GosScreen.PERSONAS -> GosScreen.SPACES\n            GosScreen.SPACES -> GosScreen.HOME\n            GosScreen.HOME -> GosScreen.HOME''',
+           '''            GosScreen.TASK -> GosScreen.PERSONAS\n            GosScreen.PERSONAS -> GosScreen.SPACES\n            GosScreen.SPACES -> GosScreen.HOME\n            GosScreen.DIAGNOSTICS -> GosScreen.HOME\n            GosScreen.HOME -> GosScreen.HOME'''),
+          ('''                onSpaces = { screen = GosScreen.SPACES },\n                onLegacy = onOpenLegacy,''',
+           '''                onSpaces = { screen = GosScreen.SPACES },\n                onDiagnostics = { screen = GosScreen.DIAGNOSTICS },\n                onLegacy = onOpenLegacy,'''),
+          ('''            GosScreen.SPACES -> GosSpaces(''',
+           '''            GosScreen.DIAGNOSTICS -> GosDiagnostics(\n                identityId = identity.conversationId,\n                identitySecret = identity.installSecret,\n                onBack = { screen = GosScreen.HOME },\n                onCoreChanged = { scope.launch { loadCore() } }\n            )\n            GosScreen.SPACES -> GosSpaces('''),
+          ('''    onSpaces: () -> Unit,\n    onLegacy: () -> Unit,''',
+           '''    onSpaces: () -> Unit,\n    onDiagnostics: () -> Unit,\n    onLegacy: () -> Unit,'''),
+          ('''        Spacer(Modifier.height(14.dp))\n        GosNavCard(\n            icon = Icons.Rounded.Hub,''',
+           '''        Spacer(Modifier.height(14.dp))\n        GosNavCard(\n            icon = Icons.Rounded.MonitorHeart,\n            title = "CORE DIAGNOSTICS",\n            subtitle = "Verify auth, Render Core, Spaces, Persona API and ModelProvider",\n            badge = "SELF-TEST",\n            onClick = onDiagnostics\n        )\n        GosNavCard(\n            icon = Icons.Rounded.Hub,''')
+          ]
+
+          for old, new in reps:
+              if old not in s:
+                  raise SystemExit('Expected pattern not found:\n' + old[:180])
+              s = s.replace(old, new, 1)
+
+          marker = '''@Composable\nprivate fun GosSpaces('''
+          helper = '''@Composable\nprivate fun GosDiagnostics(\n    identityId: String,\n    identitySecret: String,\n    onBack: () -> Unit,\n    onCoreChanged: () -> Unit\n) {\n    val scope = rememberCoroutineScope()\n    var running by remember { mutableStateOf(false) }\n    var lastRun by remember { mutableStateOf<Long?>(null) }\n    var items by remember { mutableStateOf<List<GosDiagnosticItem>>(emptyList()) }\n    var fatalError by remember { mutableStateOf<String?>(null) }\n\n    suspend fun runSelfTest() {\n        running = true\n        fatalError = null\n        items = emptyList()\n        val result = mutableListOf<GosDiagnosticItem>()\n\n        runCatching {\n            val core = ApiClient.api.gosState(identityId, identitySecret)\n            if (!core.ok) error(core.error ?: "Core state returned not-ok")\n            result += GosDiagnosticItem("INSTALL IDENTITY / AUTH", "Install-scoped identity accepted by Core", true)\n            result += GosDiagnosticItem("RENDER / G-OS CORE", "Core v${core.version ?: "0.1"} responded", true)\n\n            val spaces = ApiClient.api.gosSpaces(identityId, identitySecret)\n            if (!spaces.ok) error(spaces.error ?: "Spaces API returned not-ok")\n            val home = spaces.items.firstOrNull { it.key == "HOME" }\n            result += GosDiagnosticItem(\n                "BASE SPACES",\n                if (home != null) "${spaces.items.size} Spaces available; HOME present" else "HOME Space missing",\n                home != null\n            )\n\n            if (home != null) {\n                val personas = ApiClient.api.gosPersonas(identityId, identitySecret, home.id)\n                result += GosDiagnosticItem(\n                    "PERSONA API",\n                    if (personas.ok) "Connected; ${personas.items.size} Persona(s) in HOME" else (personas.error ?: "Persona API failed"),\n                    personas.ok\n                )\n            } else {\n                result += GosDiagnosticItem("PERSONA API", "Skipped because HOME is missing", false)\n            }\n\n            val provider = core.providers.firstOrNull { it.configured }\n            result += GosDiagnosticItem(\n                "MODEL PROVIDER",\n                if (provider != null) "${provider.label} • ${provider.model ?: "model"} • CONNECTED" else "API WAITING — expected until the secret key is available",\n                if (provider != null) true else null\n            )\n            result += GosDiagnosticItem(\n                "FULL TASK LOOP",\n                if (provider != null) "Ready for explicit real Task Runner test" else "Blocked only by external model API key",\n                if (provider != null) true else null\n            )\n        }.onFailure {\n            fatalError = it.message ?: "Core diagnostics failed"\n            if (result.isEmpty()) {\n                result += GosDiagnosticItem("CORE CONNECTION", fatalError ?: "Connection failed", false)\n            }\n        }\n\n        items = result\n        lastRun = System.currentTimeMillis()\n        running = false\n        onCoreChanged()\n    }\n\n    LaunchedEffect(Unit) { runSelfTest() }\n\n    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {\n        GosHeader("CORE DIAGNOSTICS", "No paid AI calls", onBack)\n\n        Surface(\n            color = GosSurface,\n            shape = RoundedCornerShape(18.dp),\n            modifier = Modifier.fillMaxWidth().border(1.dp, GosPurple.copy(alpha = .2f), RoundedCornerShape(18.dp))\n        ) {\n            Column(Modifier.padding(14.dp)) {\n                Text("SELF-TEST", color = GosPurpleBright, fontSize = 9.sp, letterSpacing = 1.2.sp)\n                Text("Checks the real runtime instead of trusting UI buttons.", color = GosText, fontSize = 13.sp, modifier = Modifier.padding(top = 5.dp))\n                Text("Model execution is never triggered here, so this test cannot spend API tokens.", color = GosMuted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 4.dp))\n            }\n        }\n\n        Spacer(Modifier.height(12.dp))\n        Button(\n            onClick = { scope.launch { runSelfTest() } },\n            enabled = !running,\n            modifier = Modifier.fillMaxWidth().height(48.dp),\n            colors = ButtonDefaults.buttonColors(containerColor = GosPurple),\n            shape = RoundedCornerShape(16.dp)\n        ) {\n            Icon(Icons.Rounded.MonitorHeart, null)\n            Spacer(Modifier.width(7.dp))\n            Text(if (running) "TESTING CORE…" else "RUN SELF-TEST")\n        }\n        if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = GosPurpleBright)\n        lastRun?.let { Text("Last run: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(it))}", color = GosMuted, fontSize = 8.sp, modifier = Modifier.padding(top = 6.dp)) }\n        fatalError?.let { Text(it, color = GosRed, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp)) }\n\n        LazyColumn(\n            verticalArrangement = Arrangement.spacedBy(8.dp),\n            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp)\n        ) {\n            items(items, key = { it.label }) { item ->\n                Surface(color = GosSurface2, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {\n                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {\n                        Icon(\n                            when (item.ok) {\n                                true -> Icons.Rounded.CheckCircle\n                                false -> Icons.Rounded.Cancel\n                                null -> Icons.Rounded.HourglassTop\n                            },\n                            null,\n                            tint = when (item.ok) {\n                                true -> GosGreen\n                                false -> GosRed\n                                null -> GosPurpleBright\n                            },\n                            modifier = Modifier.size(21.dp)\n                        )\n                        Spacer(Modifier.width(10.dp))\n                        Column(Modifier.weight(1f)) {\n                            Text(item.label, color = GosText, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)\n                            Text(item.detail, color = GosMuted, fontSize = 9.sp, modifier = Modifier.padding(top = 2.dp))\n                        }\n                        GosBadge(when (item.ok) { true -> "PASS"; false -> "FAIL"; null -> "WAIT" })\n                    }\n                }\n            }\n        }\n    }\n}\n\n'''
+          if marker not in s:
+              raise SystemExit('GosSpaces marker not found')
+          s = s.replace(marker, helper + marker, 1)
+          p.write_text(s)
+          PY
+      - name: Commit diagnostics
+        run: |
+          git config user.name 'G-OS Builder'
+          git config user.email 'contact-builder@users.noreply.github.com'
+          git add app/src/main/java/com/jrstudio/svyazsbogom/ui/GosRootApp.kt
+          git commit -m 'Add G-OS Core self-test diagnostics screen'
+          git push origin main
