@@ -566,6 +566,12 @@ private fun GosPersonas(
                         }
                         Text(persona.personality, color = GosMuted, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
                         Text("XP ${persona.xp} • GEN ${persona.genome.generation} • ${persona.genome.planning.uppercase()}", color = GosMuted.copy(alpha = .75f), fontSize = 8.sp, modifier = Modifier.padding(top = 6.dp))
+                        GosPersonaActions(
+                            identityId = identityId,
+                            identitySecret = identitySecret,
+                            persona = persona,
+                            onReload = onReload
+                        )
                     }
                 }
             }
