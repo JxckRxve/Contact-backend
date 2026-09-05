@@ -12,8 +12,8 @@ android {
         applicationId = "com.jrstudio.contact"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.5.0"
+        versionCode = System.getenv("GOS_VERSION_CODE")?.toIntOrNull() ?: 7
+        versionName = System.getenv("GOS_VERSION_NAME") ?: "0.5.0"
     }
 
     compileOptions {
