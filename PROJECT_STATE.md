@@ -15,7 +15,10 @@ Updated: 2026-09-05
   USER → SPACE → PERSONA → TASK → MODEL → RESULT → MEMORY → EXPERIENCE → FITNESS.
 - Added independent fitness history.
 - Added backend syntax + integration smoke workflow.
+- CI smoke run completed successfully on 2026-09-05.
 - Changed runtime entrypoint to `gos-server.js`, which intercepts only `/api/gos/*` and delegates all legacy routes to the untouched CONTACT server.
+- Added `CURRENT_STATE.md`.
+- Added private-file protection for `INVENTION_LOG.md` and `gos-data.json` through `.gitignore`.
 
 ## WORKING
 
@@ -47,21 +50,22 @@ Updated: 2026-09-05
 
 - G-OS Core currently has backend/API only; Android has not yet been converted into the G-OS control-center shell.
 - Persistence is JSON-file based and not production-grade.
-- Production Render deployment and real configured AI provider must be verified after CI.
+- Production Render deployment and real configured AI provider are not yet verified end-to-end.
 - G-OS and legacy CONTACT currently keep separate prototype data stores to prevent legacy writes from corrupting new Core state. A deliberate DB migration/unification is required later.
 - Achievements storage exists, but rules are not wired yet.
 - Persona clone/edit/archive are not yet connected.
 - Full Memory Core taxonomy/retrieval lifecycle is not complete.
 - HIRE is absent from current repository.
+- `INVENTION_LOG.md` must remain outside the public Git history; the repository is currently public.
 
 ## NEXT
 
-1. Confirm backend CI green and production `/api/gos/state` deployment.
-2. Connect minimal Android G-OS shell:
+1. Connect minimal Android G-OS shell:
    HOME → SPACES → PERSONAS → TASK RUNNER.
-3. Run the same vertical cycle from the actual Android client against Render.
-4. Mark cycle READY only after Android + Render + real model path are tested together.
-5. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
+2. Run the same vertical cycle from the actual Android client against Render and a real configured model provider.
+3. Mark cycle READY only after Android + Render + real model path are tested together.
+4. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
+5. Wire event-driven Achievements.
 6. After Core is stable, begin MONEY SPACE v0.1 and Opportunity database.
 
 ## STATUS MODEL
