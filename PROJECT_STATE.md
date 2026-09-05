@@ -53,6 +53,15 @@ Updated: 2026-09-05
 - Diagnostics never triggers AI by itself, so it cannot spend API tokens.
 - G-OS v0.1.2 diagnostics Android APK compiled successfully in GitHub Actions.
 - Build artifact: `G-OS-v0.1.2-debug-apk`.
+- Physical Android device test completed on G-OS v0.1.2.
+- Physical-device Core Diagnostics result:
+  - INSTALL IDENTITY / AUTH = PASS
+  - RENDER / G-OS CORE = PASS
+  - BASE SPACES = PASS (14 Spaces; HOME present)
+  - PERSONA API = PASS
+  - MODEL PROVIDER = WAIT (expected until API key exists)
+  - FULL TASK LOOP = WAIT (blocked only by external model API key)
+- Android `MODEL OFFLINE / API WAITING` UI state is physically verified on-device.
 
 ## WORKING
 
@@ -92,6 +101,7 @@ Updated: 2026-09-05
 - Provider-aware connection status.
 - Offline-safe Task Runner lock while API is unavailable.
 - APK compilation and artifact generation are TESTED.
+- Physical-device non-model Core path is TESTED.
 
 ### Model routing
 - OpenAI-compatible Chat Completions: TESTED by previous Core path.
@@ -101,13 +111,12 @@ Updated: 2026-09-05
 ## ISSUES
 
 - Production Render still has no secret API key configured, so no provider can make a real paid/model request yet.
-- Current production provider state is expected to be:
+- Current production provider state is:
   - primary `openai-responses`
   - model `gpt-5.6-luna`
   - configured `false` until `LLM_API_KEY` is supplied.
 - The strict production full-loop smoke therefore correctly fails at `Real AI provider is configured` and does not mark Core READY.
 - The complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY until a real model request passes.
-- The v0.1.2 APK compiled successfully, but physical-device UI/self-test still needs the owner to launch it on Android.
 - Persistence is JSON-file based and not production-grade.
 - G-OS and legacy CONTACT currently use separate prototype data stores to prevent accidental legacy corruption; deliberate DB migration/unification is required later.
 - Achievements storage exists, but event rules are not wired yet.
@@ -118,23 +127,16 @@ Updated: 2026-09-05
 
 ## NEXT
 
-1. Install/run `G-OS-v0.1.2-debug.apk` on the physical Android device.
-2. Open `CORE DIAGNOSTICS`; expected pre-API result:
-   - AUTH = PASS
-   - RENDER / G-OS CORE = PASS
-   - BASE SPACES = PASS
-   - PERSONA API = PASS
-   - MODEL PROVIDER = WAIT
-   - FULL TASK LOOP = WAIT
-3. If any pre-API item is FAIL, fix it before proceeding.
-4. When OpenAI API access becomes available, set only the secret `LLM_API_KEY` in Render.
-5. Re-run diagnostics, then strict production smoke and require:
+1. No additional pre-API Core fix is required based on the physical-device diagnostics result.
+2. When OpenAI API access becomes available, set only the secret `LLM_API_KEY` in Render.
+3. Re-run Core Diagnostics and require `MODEL PROVIDER = PASS`.
+4. Re-run strict production smoke and require:
    TASK → RESULT → MEMORY → EXPERIENCE → FITNESS = PASS.
-6. Run the same task from the actual Android UI against Render.
-7. Mark the Core vertical slice READY only after Android + Render + real model pass together.
-8. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
-9. Wire event-driven Achievements.
-10. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
+5. Run the same task from the actual Android UI against Render.
+6. Mark the Core vertical slice READY only after Android + Render + real model pass together.
+7. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
+8. Wire event-driven Achievements.
+9. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
 
 ## STATUS MODEL
 
@@ -149,11 +151,11 @@ Updated: 2026-09-05
 - Legacy CONTACT: WORKING / PRESERVED.
 - G-OS backend Core: CONNECTED + TESTED in CI and Render for non-model routes.
 - OpenAI Responses adapter: TESTED in CI.
-- Android G-OS shell v0.1.2: UI + API CONNECTED in code; APK BUILD TESTED.
-- Android Core Diagnostics: IMPLEMENTED + BUILD TESTED; physical-device result pending.
-- Android model-offline behavior: BUILD TESTED; physical-device UI check pending.
+- Android G-OS shell v0.1.2: UI + API CONNECTED; APK BUILD TESTED; physical-device non-model runtime TESTED.
+- Android Core Diagnostics: PHYSICAL-DEVICE TESTED.
+- Android model-offline behavior: PHYSICAL-DEVICE TESTED.
 - AI ModelProvider on Render: WAITING FOR SECRET API KEY.
-- Full Core vertical slice: NOT READY.
+- Full Core vertical slice: NOT READY only because real model execution is unavailable until the API key is supplied.
 
 ## CURRENT OBJECTIVE
 
