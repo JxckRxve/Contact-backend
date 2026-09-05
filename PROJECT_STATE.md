@@ -4,82 +4,75 @@ Updated: 2026-09-05
 
 ## DONE
 
-- Audited existing CONTACT repository before replacing anything.
-- Preserved legacy CONTACT backend, Telegram bridge, Android app, wallet and Persona endpoints.
-- Added G-OS Core v0.1 as an isolated backend layer.
-- Added base Space creation per install-scoped user.
-- Added G-OS Persona creation with Space ownership, role, personality, tools, permissions, XP, level and Agent Genome v0.1.
-- Added ModelProvider abstraction through the existing provider/router layer.
-- Added generic OpenAI-compatible Chat Completions provider support.
-- Added native `openai-responses` provider support for the OpenAI Responses API.
-- Added Task, Memory, ExperienceEvent and FitnessRecord persistence.
-- Added the first backend vertical task cycle:
+### CONTACT / CORE foundation
+- Existing CONTACT audited before modification.
+- Legacy CONTACT Android UI, Developer/Higher routes, Telegram bridge, wallet/C-coins, legacy Persona and memory preserved.
+- G-OS runs as an isolated layer through `gos-server.js`; `/api/gos/*` is handled by `gos/standalone.js`, while legacy routes remain delegated to CONTACT.
+- Base install-scoped User + 14 default Spaces implemented.
+- Core entities implemented: Space, Persona, Task, Memory, ExperienceEvent, Achievement storage, Permission, FitnessRecord and ModelProvider abstraction.
+- First backend vertical loop implemented and integration-tested with a mock OpenAI Responses provider:
   USER → SPACE → PERSONA → TASK → MODEL → RESULT → MEMORY → EXPERIENCE → FITNESS.
-- Added independent fitness history.
-- Added backend syntax + integration smoke workflow.
-- G-OS Core + OpenAI Responses adapter integration test passes in CI.
-- Runtime entrypoint is `gos-server.js`, which intercepts only `/api/gos/*` and delegates legacy routes to the preserved CONTACT server.
-- Added `CURRENT_STATE.md`.
-- Added private-file protection for `INVENTION_LOG.md` and `gos-data.json` through `.gitignore`.
-- Added Android G-OS data models and Retrofit Core API bindings.
-- Added Android `GosRootApp` control-center shell without deleting or rewriting legacy `SvyazSBogomApp`.
-- Added Android navigation:
-  HOME → CORE DIAGNOSTICS / SPACES → PERSONAS → TASK RUNNER.
-- Added Persona creation UI with Agent Genome v0.1 fields.
-- Added Task Runner UI with RESULT / MEMORY / EXPERIENCE / FITNESS status surfaces.
-- Legacy CONTACT remains reachable from the G-OS shell as CONTACT DNA.
-- Fixed Compose compilation errors found by CI.
-- Production Render smoke verified that `/health`, `/api/gos/state`, Spaces and Persona creation are live.
-- Added strict production smoke that refuses to mark the vertical loop complete unless a real AI provider is configured and Task → Result → Memory → Experience → Fitness succeeds.
-- Render blueprint contains non-secret OpenAI defaults:
-  - `LLM_ENDPOINT=https://api.openai.com/v1/responses`
-  - `LLM_MODEL=gpt-5.6-luna`
-  - `LLM_KIND=openai-responses`
-- `.env.example` documents Responses and generic provider modes.
-- Android parses ModelProvider status from `/api/gos/state`.
-- Added explicit Android model state:
-  - `MODEL CHECKING`
-  - `MODEL CONNECTED`
-  - `MODEL OFFLINE / API WAITING`
-- Task Runner is disabled when no configured provider exists and shows `WAITING FOR API` instead of sending a guaranteed-failing model request.
-- Added `CORE DIAGNOSTICS / SELF-TEST` screen.
-- Core diagnostics checks the actual runtime without a paid model call:
-  - install identity/auth;
-  - Render/G-OS Core response;
-  - base Spaces + HOME;
-  - Persona API;
-  - ModelProvider state;
-  - whether the full Task loop is ready for explicit testing.
-- Diagnostics never triggers AI by itself, so it cannot spend API tokens.
-- G-OS v0.1.2 diagnostics Android APK compiled successfully in GitHub Actions.
-- Build artifact: `G-OS-v0.1.2-debug-apk`.
-- Physical Android device test completed on G-OS v0.1.2.
-- Physical-device Core Diagnostics result:
+- OpenAI-compatible and OpenAI Responses provider adapters implemented; real production key is still unavailable.
+- Core Diagnostics / Self-Test implemented with no paid model call.
+- Physical Android v0.1.2 diagnostic test passed:
   - INSTALL IDENTITY / AUTH = PASS
   - RENDER / G-OS CORE = PASS
-  - BASE SPACES = PASS (14 Spaces; HOME present)
+  - BASE SPACES = PASS (14; HOME present)
   - PERSONA API = PASS
-  - MODEL PROVIDER = WAIT (expected until API key exists)
-  - FULL TASK LOOP = WAIT (blocked only by external model API key)
-- Android `MODEL OFFLINE / API WAITING` UI state is physically verified on-device.
+  - MODEL PROVIDER = WAIT (expected)
+  - FULL TASK LOOP = WAIT (expected)
+- `MODEL OFFLINE / API WAITING` behavior physically verified on Android.
+
+### Persona System v0.2
+- Persona CREATE retained.
+- Added real backend EDIT:
+  - name
+  - role
+  - personality
+  - Space
+  - tools
+  - Genome prompt
+  - planning
+  - model preference
+  - communication style
+- Added real backend CLONE:
+  - new Persona ID
+  - source configuration copied
+  - permissions copied
+  - source tracked as `cloneOfPersonaId`
+  - XP reset to 0
+  - level reset to 1
+  - history of the source remains untouched
+- Added real backend ARCHIVE:
+  - Persona is not deleted
+  - status becomes archived
+  - history remains
+  - archived Persona disappears from active lists
+- Added ExperienceEvents:
+  - `persona_updated`
+  - `persona_cloned`
+  - `persona_archived`
+- Extended integration test to require:
+  CREATE → EDIT → CLONE → ARCHIVE ORIGINAL → CLONE REMAINS ACTIVE → TASK THROUGH CLONE.
+- Persona v0.2 backend integration test = PASS.
+- Android Persona cards now expose EDIT / CLONE / ARCHIVE.
+- Android EDIT exposes name, role, personality, tools, planning and communication style plus Genome version/generation.
+- Android ARCHIVE requires explicit confirmation.
+- G-OS v0.1.3 Android APK compiled successfully in GitHub Actions.
+- Render auto-deploy is live on the latest `main` commit after Persona v0.2 and cleanup.
+- Temporary patch scripts/workflows used to construct Persona v0.2 were removed after successful tests/build.
 
 ## WORKING
 
-### Legacy CONTACT
-- Android Compose client preserved.
-- Developer / Higher human-contact routes.
-- Telegram admin bridge in backend.
-- Legacy Persona create/chat API.
-- Wallet / C-coins.
-- Existing AI provider routing abstraction.
-- Legacy memory save/read.
-
-### G-OS Core v0.1 backend
+### G-OS Core API
 - `GET /api/gos/state`
 - `GET /api/gos/spaces`
 - `POST /api/gos/spaces`
 - `GET /api/gos/personas`
 - `POST /api/gos/personas`
+- `PATCH /api/gos/personas/:id`
+- `POST /api/gos/personas/:id/clone`
+- `POST /api/gos/personas/:id/archive`
 - `GET /api/gos/model-providers`
 - `GET /api/gos/permissions`
 - `GET /api/gos/tasks`
@@ -89,76 +82,76 @@ Updated: 2026-09-05
 - `GET /api/gos/fitness`
 - `GET /api/gos/achievements`
 
-### Android G-OS shell
-- HOME dashboard.
-- Core Diagnostics / Self-Test.
+### Android
+- HOME / Control Center.
+- Core Diagnostics.
 - Space selection.
-- Persona list/create.
+- Persona create/list.
+- Persona edit/clone/archive controls.
 - Task Runner.
-- Result display.
-- Memory / Experience / Fitness result indicators.
-- Legacy CONTACT entry.
-- Provider-aware connection status.
-- Offline-safe Task Runner lock while API is unavailable.
-- APK compilation and artifact generation are TESTED.
-- Physical-device non-model Core path is TESTED.
-
-### Model routing
-- OpenAI-compatible Chat Completions: TESTED by previous Core path.
-- OpenAI Responses adapter: TESTED in CI with a mock Responses server.
-- Local/self-hosted OpenAI-compatible abstraction remains available.
+- Result + Memory + Experience + Fitness indicators.
+- CONTACT DNA entry.
+- Provider-aware offline state.
 
 ## ISSUES
 
-- Production Render still has no secret API key configured, so no provider can make a real paid/model request yet.
-- Current production provider state is:
-  - primary `openai-responses`
-  - model `gpt-5.6-luna`
-  - configured `false` until `LLM_API_KEY` is supplied.
-- The strict production full-loop smoke therefore correctly fails at `Real AI provider is configured` and does not mark Core READY.
-- The complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY until a real model request passes.
-- Persistence is JSON-file based and not production-grade.
-- G-OS and legacy CONTACT currently use separate prototype data stores to prevent accidental legacy corruption; deliberate DB migration/unification is required later.
-- Achievements storage exists, but event rules are not wired yet.
-- Persona clone/edit/archive are not yet connected.
-- Full Memory Core taxonomy/retrieval lifecycle is not complete.
+- `LLM_API_KEY` is not available yet, so real paid/model execution remains intentionally blocked.
+- Full Android → Render → real MODEL → Result → Memory → Experience → Fitness is therefore NOT READY yet.
+- Persona v0.2 backend is integration-tested and Android v0.1.3 is build-tested, but EDIT / CLONE / ARCHIVE still need one physical-device production test.
+- Backend supports moving a Persona to another Space during edit; Android v0.1.3 does not expose Space selection in the edit dialog yet.
+- Permission data exists and clone preserves permissions, but permission editing UI is not implemented yet.
+- Archived Persona restore/resurrection UI/API is not implemented yet; archive is intentionally non-destructive for future restore.
+- Memory Core taxonomy/retrieval lifecycle is still incomplete.
+- Achievements storage exists but event-driven achievement rules are not wired yet.
+- Persistence remains prototype JSON storage, not production-grade DB storage.
+- `gos/core.js` is a secondary earlier Core implementation; authoritative production G-OS routing currently uses `gos/standalone.js`. Keep this distinction until deliberate consolidation.
 - HIRE is absent from the current repository.
-- `INVENTION_LOG.md` must remain outside public Git history; repository is currently public.
+- `INVENTION_LOG.md` must remain private/outside public Git history.
 
 ## NEXT
 
-1. No additional pre-API Core fix is required based on the physical-device diagnostics result.
-2. When OpenAI API access becomes available, set only the secret `LLM_API_KEY` in Render.
-3. Re-run Core Diagnostics and require `MODEL PROVIDER = PASS`.
-4. Re-run strict production smoke and require:
-   TASK → RESULT → MEMORY → EXPERIENCE → FITNESS = PASS.
-5. Run the same task from the actual Android UI against Render.
-6. Mark the Core vertical slice READY only after Android + Render + real model pass together.
-7. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
-8. Wire event-driven Achievements.
-9. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
+1. Install `G-OS-v0.1.3-debug.apk` on the physical Android device.
+2. In one Space create a disposable test Persona.
+3. Verify on the real Render production path:
+   - EDIT changes the Persona and persists after reload.
+   - CLONE creates a second active Persona with XP 0 / level 1.
+   - ARCHIVE removes the original from the active list without deleting history.
+4. Fix any physical-runtime/UI issue found in that test.
+5. Then build Memory Core v0.1 while waiting for OpenAI API access:
+   - Working
+   - Episodic
+   - Personal
+   - Agent
+   - Space
+   - retrieval/filter UI and tests.
+6. After API access is available, set only `LLM_API_KEY` in Render.
+7. Require Core Diagnostics MODEL PROVIDER = PASS and strict production full-loop PASS.
+8. Run the same real task from Android.
+9. Only then mark the Core vertical slice READY.
+10. After Core READY: Achievements → MONEY SPACE v0.1.
 
 ## STATUS MODEL
 
-- UI — visible only.
-- BACKEND — server logic exists.
-- CONNECTED — UI/API/model are wired together.
-- TESTED — automated or manual test passed.
-- READY — tested in the real intended runtime with no known blocker for this stage.
+- UI = visible only.
+- BACKEND = server logic exists.
+- CONNECTED = layers are wired.
+- TESTED = automated or physical test passed.
+- READY = tested in the intended real runtime with no blocker for this stage.
 
 ## CURRENT STATUS
 
 - Legacy CONTACT: WORKING / PRESERVED.
-- G-OS backend Core: CONNECTED + TESTED in CI and Render for non-model routes.
-- OpenAI Responses adapter: TESTED in CI.
-- Android G-OS shell v0.1.2: UI + API CONNECTED; APK BUILD TESTED; physical-device non-model runtime TESTED.
-- Android Core Diagnostics: PHYSICAL-DEVICE TESTED.
-- Android model-offline behavior: PHYSICAL-DEVICE TESTED.
-- AI ModelProvider on Render: WAITING FOR SECRET API KEY.
-- Full Core vertical slice: NOT READY only because real model execution is unavailable until the API key is supplied.
+- G-OS non-model Core: CONNECTED + TESTED on physical Android + Render.
+- Persona System v0.2 backend: CONNECTED + TESTED in integration CI.
+- Persona System v0.2 Android: CONNECTED + APK BUILD TESTED; physical operation test pending.
+- Render latest Persona v0.2 deployment: LIVE.
+- ModelProvider production: WAITING FOR `LLM_API_KEY`.
+- Full Core vertical slice: NOT READY only because real model execution is unavailable and Persona v0.2 Android operations still need the short physical test.
 
 ## CURRENT OBJECTIVE
 
-Do not move to Money Space until the Android/Render Core vertical slice passes with a real model:
+Finish Persona v0.2 physical test, then Memory Core v0.1 while keeping the final model step waiting for API access.
 
-USER → SPACE → PERSONA → TASK → RESULT → MEMORY → EXPERIENCE → FITNESS.
+Do not begin Money Space until:
+USER → SPACE → PERSONA → TASK → RESULT → MEMORY → EXPERIENCE → FITNESS
+passes through the real Android + Render + model path.
