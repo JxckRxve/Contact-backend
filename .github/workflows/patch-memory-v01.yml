@@ -1,0 +1,38 @@
+name: Patch Memory Core v0.1
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/patch-memory-v01.py'
+      - '.github/workflows/patch-memory-v01.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply Memory Core backend patch
+        run: python scripts/patch-memory-v01.py
+      - name: Syntax check
+        run: |
+          node --check gos/standalone.js
+          node --check tests/gos-core-smoke.js
+      - name: Integration test
+        run: npm test
+      - name: Commit Memory Core backend
+        run: |
+          git config user.name 'G-OS Builder'
+          git config user.email 'contact-builder@users.noreply.github.com'
+          git add gos/standalone.js tests/gos-core-smoke.js
+          git commit -m 'Add Memory Core v0.1 backend'
+          git push origin main
