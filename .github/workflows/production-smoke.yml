@@ -1,0 +1,74 @@
+name: Smoke G-OS Production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/production-smoke.yml'
+      - 'gos-server.js'
+      - 'gos/**'
+      - 'render.yaml'
+      - 'package.json'
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for Render and verify G-OS Core
+        env:
+          BASE_URL: https://contact-backend-u3ug.onrender.com
+        run: |
+          set -euo pipefail
+
+          echo "Checking Render health..."
+          ready=0
+          for i in $(seq 1 18); do
+            if curl -fsS --max-time 20 "$BASE_URL/health" > /tmp/health.json; then
+              if grep -q '"ok":true' /tmp/health.json; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 10
+          done
+          test "$ready" = "1"
+          cat /tmp/health.json
+
+          ID=$(cat /proc/sys/kernel/random/uuid)
+          SECRET="$(cat /proc/sys/kernel/random/uuid)$(cat /proc/sys/kernel/random/uuid)"
+          QID=$(printf '%s' "$ID" | jq -sRr @uri)
+          QSECRET=$(printf '%s' "$SECRET" | jq -sRr @uri)
+
+          echo "Checking G-OS state..."
+          curl -fsS --max-time 30 "$BASE_URL/api/gos/state?conversationId=$QID&installSecret=$QSECRET" > /tmp/state.json
+          cat /tmp/state.json
+          node -e 'const x=require("/tmp/state.json"); if(!x.ok || !x.counts || x.counts.spaces < 1) process.exit(1)'
+
+          echo "Checking Spaces..."
+          curl -fsS --max-time 30 "$BASE_URL/api/gos/spaces?conversationId=$QID&installSecret=$QSECRET" > /tmp/spaces.json
+          HOME_ID=$(node -e 'const x=require("/tmp/spaces.json"); const s=(x.items||[]).find(v=>v.key==="HOME"); if(!s) process.exit(2); process.stdout.write(s.id)')
+
+          echo "Creating production test Persona..."
+          jq -n \
+            --arg conversationId "$ID" \
+            --arg installSecret "$SECRET" \
+            --arg spaceId "$HOME_ID" \
+            '{conversationId:$conversationId,installSecret:$installSecret,spaceId:$spaceId,name:"Production Smoke",role:"tester",personality:"Minimal production verification persona."}' \
+            > /tmp/persona-request.json
+          curl -fsS --max-time 30 -H 'Content-Type: application/json' -d @/tmp/persona-request.json "$BASE_URL/api/gos/personas" > /tmp/persona.json
+          cat /tmp/persona.json
+          node -e 'const x=require("/tmp/persona.json"); if(!x.ok || !x.persona || !x.persona.id) process.exit(1)'
+
+          echo "Checking ModelProvider status..."
+          curl -fsS --max-time 30 "$BASE_URL/api/gos/model-providers?conversationId=$QID&installSecret=$QSECRET" > /tmp/providers.json
+          cat /tmp/providers.json
+          node - <<'NODE'
+          const x = require('/tmp/providers.json');
+          const configured = (x.items || []).filter(p => p.configured);
+          console.log(`CONFIGURED_PROVIDERS=${configured.length}`);
+          if (configured.length) console.log(configured.map(p => `${p.id}:${p.model}`).join(','));
+          NODE
+
+          echo "PRODUCTION_GOS_CORE_OK"
