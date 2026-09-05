@@ -9,29 +9,39 @@ Updated: 2026-09-05
 - Added G-OS Core v0.1 as an isolated backend layer.
 - Added base Space creation per install-scoped user.
 - Added G-OS Persona creation with Space ownership, role, personality, tools, permissions, XP, level and Agent Genome v0.1.
-- Added ModelProvider access through the existing OpenAI-compatible provider/router abstraction.
+- Added ModelProvider abstraction through the existing OpenAI-compatible provider/router layer.
 - Added Task, Memory, ExperienceEvent and FitnessRecord persistence.
-- Added the first vertical task cycle:
+- Added the first backend vertical task cycle:
   USER → SPACE → PERSONA → TASK → MODEL → RESULT → MEMORY → EXPERIENCE → FITNESS.
 - Added independent fitness history.
-- Added backend syntax + integration smoke workflow.
-- CI smoke run completed successfully on 2026-09-05.
-- Changed runtime entrypoint to `gos-server.js`, which intercepts only `/api/gos/*` and delegates all legacy routes to the untouched CONTACT server.
+- Added backend syntax + integration smoke workflow; CI passes.
+- Runtime entrypoint is `gos-server.js`, which intercepts only `/api/gos/*` and delegates legacy routes to the preserved CONTACT server.
 - Added `CURRENT_STATE.md`.
 - Added private-file protection for `INVENTION_LOG.md` and `gos-data.json` through `.gitignore`.
+- Added Android G-OS data models and Retrofit Core API bindings.
+- Added Android `GosRootApp` control-center shell without deleting or rewriting legacy `SvyazSBogomApp`.
+- Added Android navigation:
+  HOME → SPACES → PERSONAS → TASK RUNNER.
+- Added Persona creation UI with Agent Genome v0.1 fields.
+- Added Task Runner UI with RESULT / MEMORY / EXPERIENCE / FITNESS status surfaces.
+- Legacy CONTACT remains reachable from the G-OS shell as CONTACT DNA.
+- Fixed Compose compilation errors found by CI.
+- Android G-OS APK build passed on GitHub Actions; `G-OS-debug-apk` artifact was generated successfully.
+- Production Render smoke verified that `/health`, `/api/gos/state`, Spaces and Persona creation are live.
+- Added strict production smoke that refuses to mark the vertical loop complete unless a real AI provider is configured and Task → Result → Memory → Experience → Fitness succeeds.
 
 ## WORKING
 
 ### Legacy CONTACT
-- Android Compose client.
+- Android Compose client preserved.
 - Developer / Higher human-contact routes.
 - Telegram admin bridge in backend.
 - Legacy Persona create/chat API.
 - Wallet / C-coins.
-- Existing AI provider routing.
+- Existing AI provider routing abstraction.
 - Legacy memory save/read.
 
-### G-OS Core v0.1 endpoints
+### G-OS Core v0.1 backend
 - `GET /api/gos/state`
 - `GET /api/gos/spaces`
 - `POST /api/gos/spaces`
@@ -46,27 +56,47 @@ Updated: 2026-09-05
 - `GET /api/gos/fitness`
 - `GET /api/gos/achievements`
 
+### Android G-OS shell
+- HOME dashboard.
+- Space selection.
+- Persona list/create.
+- Task Runner.
+- Result display.
+- Memory / Experience / Fitness result indicators.
+- Legacy CONTACT entry.
+- APK compilation and artifact generation are TESTED.
+
 ## ISSUES
 
-- G-OS Core currently has backend/API only; Android has not yet been converted into the G-OS control-center shell.
+- Production Render currently reports ZERO configured AI providers:
+  - Primary: not configured.
+  - Secondary: not configured.
+  - Local/self-hosted: not configured.
+- Because no model provider is configured, the strict production full-loop smoke correctly fails at the `Real AI provider is configured` stage and skips the real Task execution stage.
+- Therefore the complete Android → Render → AI MODEL → Result → Memory → Experience → Fitness path is NOT READY yet.
+- The APK has compiled successfully, but the new G-OS shell has not yet been manually exercised on a physical Android device against a real model.
 - Persistence is JSON-file based and not production-grade.
-- Production Render deployment and real configured AI provider are not yet verified end-to-end.
-- G-OS and legacy CONTACT currently keep separate prototype data stores to prevent legacy writes from corrupting new Core state. A deliberate DB migration/unification is required later.
-- Achievements storage exists, but rules are not wired yet.
+- G-OS and legacy CONTACT currently use separate prototype data stores to prevent accidental legacy corruption; deliberate DB migration/unification is required later.
+- Achievements storage exists, but event rules are not wired yet.
 - Persona clone/edit/archive are not yet connected.
 - Full Memory Core taxonomy/retrieval lifecycle is not complete.
-- HIRE is absent from current repository.
-- `INVENTION_LOG.md` must remain outside the public Git history; the repository is currently public.
+- HIRE is absent from the current repository.
+- `INVENTION_LOG.md` must remain outside public Git history; repository is currently public.
 
 ## NEXT
 
-1. Connect minimal Android G-OS shell:
-   HOME → SPACES → PERSONAS → TASK RUNNER.
-2. Run the same vertical cycle from the actual Android client against Render and a real configured model provider.
-3. Mark cycle READY only after Android + Render + real model path are tested together.
-4. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
-5. Wire event-driven Achievements.
-6. After Core is stable, begin MONEY SPACE v0.1 and Opportunity database.
+1. Configure one real ModelProvider on Render. Existing backward-compatible minimum variables are:
+   - `LLM_ENDPOINT`
+   - `LLM_API_KEY`
+   - `LLM_MODEL`
+   New provider-specific `CONTACT_AI_PRIMARY_*` variables can be used later.
+2. Re-run strict production smoke and require:
+   TASK → RESULT → MEMORY → EXPERIENCE → FITNESS = PASS.
+3. Run/install the generated G-OS APK on the actual Android device and execute the same task through the UI.
+4. Mark the Core vertical slice READY only after Android + Render + real model pass together.
+5. Then implement Persona edit / clone / archive and complete Memory Core v0.1.
+6. Wire event-driven Achievements.
+7. Only after Core is READY, begin MONEY SPACE v0.1 and Opportunity database.
 
 ## STATUS MODEL
 
@@ -76,8 +106,16 @@ Updated: 2026-09-05
 - TESTED — automated or manual test passed.
 - READY — tested in the real intended runtime with no known blocker for this stage.
 
+## CURRENT STATUS
+
+- Legacy CONTACT: WORKING / PRESERVED.
+- G-OS backend Core: CONNECTED + TESTED in CI and Render for non-model routes.
+- Android G-OS shell: UI + API CONNECTED in code; APK BUILD TESTED.
+- AI ModelProvider on Render: NOT CONNECTED.
+- Full Core vertical slice: NOT READY.
+
 ## CURRENT OBJECTIVE
 
-Do not move to Money Space until the Android/Render version of the Core vertical slice is CONNECTED + TESTED:
+Do not move to Money Space until the Android/Render Core vertical slice passes with a real model:
 
 USER → SPACE → PERSONA → TASK → RESULT → MEMORY → EXPERIENCE → FITNESS.
