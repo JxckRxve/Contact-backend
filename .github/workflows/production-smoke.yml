@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Wait for Render and verify G-OS Core
+      - name: Verify Render G-OS full loop
         env:
           BASE_URL: https://contact-backend-u3ug.onrender.com
         run: |
@@ -41,16 +41,24 @@ jobs:
           QID=$(printf '%s' "$ID" | jq -sRr @uri)
           QSECRET=$(printf '%s' "$SECRET" | jq -sRr @uri)
 
-          echo "Checking G-OS state..."
           curl -fsS --max-time 30 "$BASE_URL/api/gos/state?conversationId=$QID&installSecret=$QSECRET" > /tmp/state.json
-          cat /tmp/state.json
           node -e 'const x=require("/tmp/state.json"); if(!x.ok || !x.counts || x.counts.spaces < 1) process.exit(1)'
 
-          echo "Checking Spaces..."
           curl -fsS --max-time 30 "$BASE_URL/api/gos/spaces?conversationId=$QID&installSecret=$QSECRET" > /tmp/spaces.json
           HOME_ID=$(node -e 'const x=require("/tmp/spaces.json"); const s=(x.items||[]).find(v=>v.key==="HOME"); if(!s) process.exit(2); process.stdout.write(s.id)')
 
-          echo "Creating production test Persona..."
+          curl -fsS --max-time 30 "$BASE_URL/api/gos/model-providers?conversationId=$QID&installSecret=$QSECRET" > /tmp/providers.json
+          node - <<'NODE'
+          const x = require('/tmp/providers.json');
+          const configured = (x.items || []).filter(p => p.configured);
+          console.log(`CONFIGURED_PROVIDERS=${configured.length}`);
+          if (!configured.length) {
+            console.error('NO_CONFIGURED_AI_PROVIDER');
+            process.exit(3);
+          }
+          console.log(configured.map(p => `${p.id}:${p.model}`).join(','));
+          NODE
+
           jq -n \
             --arg conversationId "$ID" \
             --arg installSecret "$SECRET" \
@@ -58,17 +66,24 @@ jobs:
             '{conversationId:$conversationId,installSecret:$installSecret,spaceId:$spaceId,name:"Production Smoke",role:"tester",personality:"Minimal production verification persona."}' \
             > /tmp/persona-request.json
           curl -fsS --max-time 30 -H 'Content-Type: application/json' -d @/tmp/persona-request.json "$BASE_URL/api/gos/personas" > /tmp/persona.json
-          cat /tmp/persona.json
-          node -e 'const x=require("/tmp/persona.json"); if(!x.ok || !x.persona || !x.persona.id) process.exit(1)'
+          PERSONA_ID=$(node -e 'const x=require("/tmp/persona.json"); if(!x.ok || !x.persona || !x.persona.id) process.exit(1); process.stdout.write(x.persona.id)')
 
-          echo "Checking ModelProvider status..."
-          curl -fsS --max-time 30 "$BASE_URL/api/gos/model-providers?conversationId=$QID&installSecret=$QSECRET" > /tmp/providers.json
-          cat /tmp/providers.json
+          jq -n \
+            --arg conversationId "$ID" \
+            --arg installSecret "$SECRET" \
+            --arg spaceId "$HOME_ID" \
+            --arg personaId "$PERSONA_ID" \
+            '{conversationId:$conversationId,installSecret:$installSecret,spaceId:$spaceId,personaId:$personaId,input:"Reply with exactly: GOS_PRODUCTION_OK",quality:"auto"}' \
+            > /tmp/task-request.json
+          curl -fsS --max-time 90 -H 'Content-Type: application/json' -d @/tmp/task-request.json "$BASE_URL/api/gos/tasks/run" > /tmp/task.json
+          cat /tmp/task.json
           node - <<'NODE'
-          const x = require('/tmp/providers.json');
-          const configured = (x.items || []).filter(p => p.configured);
-          console.log(`CONFIGURED_PROVIDERS=${configured.length}`);
-          if (configured.length) console.log(configured.map(p => `${p.id}:${p.model}`).join(','));
+          const x = require('/tmp/task.json');
+          if (!x.ok) process.exit(1);
+          if (!x.task || x.task.status !== 'completed' || !x.task.result) process.exit(2);
+          if (!x.memory || !x.experience || !x.fitness) process.exit(3);
+          if (Number(x.fitness.success) !== 1) process.exit(4);
+          console.log('FULL_LOOP_OK');
           NODE
 
-          echo "PRODUCTION_GOS_CORE_OK"
+          echo "PRODUCTION_GOS_FULL_LOOP_OK"
